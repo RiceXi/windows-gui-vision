@@ -1,0 +1,7 @@
+interface:
+  display_name: "Windows GUI Vision"
+  short_description: "See and drive Windows GUI apps without image input"
+  default_prompt: "Use $windows-gui-vision to capture and read the target window, then drive it."
+
+policy:
+  allow_implicit_invocation: true

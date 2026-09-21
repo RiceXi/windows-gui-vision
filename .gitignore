@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# scratch output from using the tools
+*.png
+!docs/**/*.png
+*.json
+!examples/**/*.json
+calib*.json
+layout*.json
+_work/
