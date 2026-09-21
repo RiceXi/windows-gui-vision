@@ -90,6 +90,11 @@ accelerators, because a Chinese or Japanese IME eats them and the menu never ope
 Cropping is where figures go wrong, not capturing. Run `scripts/edgecheck.py` over the final
 crops; ink on the rim means you cut through the thing you were photographing.
 
+An application that ignores the file you opened looks exactly like one that loaded it and
+showed you an empty canvas, and it looks like a hang if you keep waiting. When you launch an
+app with a document, find the thing in its window title that proves the document arrived - for
+ISIS 7 that is the file name before `- ISIS Professional` - and check it before you go on.
+
 Keep the working files out of the folder you are delivering. Captures, crops, calibration
 json and scratch scripts belong in a sibling working directory.
 
@@ -105,7 +110,10 @@ json and scratch scripts belong in a sibling working directory.
 | [interaction.md](references/interaction.md) | clicking, typing, IMEs, modal dialogs, canvas placement |
 | [docx-report.md](references/docx-report.md) | getting captures into a Word deliverable and proving they are right |
 | [proteus.md](references/proteus.md) | Proteus ISIS/ARES: modes, object lists, bundled samples, its own traps |
-| [dsn-format.md](references/dsn-format.md) | Proteus `.DSN` layout and the verified byte-edit workflow |
-| [dsn-generate.md](references/dsn-generate.md) | adding objects to a `.DSN` from a script, and how far that got |
+| [dsn-format.md](references/dsn-format.md) | Proteus `.DSN` layout, and which byte edits survive a load |
+| [dsn-generate.md](references/dsn-generate.md) | adding objects to a `.DSN` from a script, and the re-test that says not to |
+| [dsn-templates.md](references/dsn-templates.md) | lifting part records out of existing designs into a json library |
 
-`scripts/dsn_add_component.py` implements the verified part of that last item.
+`scripts/dsn_templates.py` builds that library and `scripts/dsn_add_component.py` is the
+original single-part edit. Read the status line at the top of `dsn-generate.md` before using
+either of them to write a design.

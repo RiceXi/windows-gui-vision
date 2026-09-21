@@ -105,6 +105,12 @@ which produces 文件名无效. Press `Ctrl+A` first, or skip the dialog entirel
 Start-Process ISIS.EXE -ArgumentList '"C:\...\Design.DSN"'
 ```
 
+When you open a design that way, check that it actually loaded before doing anything else. The
+title bar gains the design's file name: `base2 - ISIS Professional` means loaded, plain
+`ISIS Professional` means it did not, and a `(未响应)` suffix means it crashed. A design ISIS
+will not load fails either silently or with a small dialog that has the same title as the main
+window, so the title bar is the cheap check.
+
 ## Wires
 
 Click a pin to start a wire, click the destination pin to finish. Pins are at the ends of the
@@ -139,7 +145,8 @@ dialogs. OCR them before acting on them.
 Switch to an English keyboard layout before sending single-letter accelerators. A Chinese IME
 swallows them.
 
-For anything bulk - placing the same part in a grid, editing parameters, generating a set of
-variant designs - prefer editing the `.DSN` directly, and use the GUI only to take the
-screenshots. The file route is also the better evidence trail: a saved design tells you what
-is really there, where a screenshot only tells you what was drawn.
+Editing a `.DSN` is a good way to read a design, and it works for changes that keep every
+record the same size - moving a part, renaming it to an equally long name. Adding objects that
+way does not work on 7.08 SP2; see [dsn-generate.md](dsn-generate.md) for the tests. Building a
+schematic means driving the GUI, and the saved design is then the evidence trail: a saved
+design tells you what is really there, where a screenshot only tells you what was drawn.

@@ -1,7 +1,13 @@
 # Adding objects to a .DSN from a script
 
-Status, so you know what you are getting: adding a component works and is verified. Generating
-a whole wired circuit does not, yet. The gap is explained at the bottom.
+Status after re-testing in September 2026 on ISIS 7.08 SP2, build 10468: **adding a record does
+not work.** Files built by inserting part records failed to load, whichever design the record
+came from and whichever part it was. Editing a record without changing its size still works.
+
+The tests are at the bottom of this file and are worth reading before the recipe, because the
+recipe is the thing that keeps looking correct and does not produce a design you can open.
+What is still reliable here is the byte layout, the list of fields that track the object area,
+and the round-trip discipline for checking an edit.
 
 ## What adding one component actually changes
 
@@ -52,6 +58,10 @@ still 17. Note that ISIS rewrites parts of the surrounding file when it saves, s
 *after* a save only means something if both files went through the same save history. Compare
 the generated file against a hand-made one *before* either is opened.
 
+That load test does not reproduce on this build, and I cannot tell you which of the two
+observations is wrong - see the re-test at the bottom. Treat the byte-level result above as
+solid and the load result as unconfirmed.
+
 ## You need one record per part
 
 The record is part-specific, and only ISIS can write one. Two ways to get it:
@@ -86,21 +96,70 @@ are load and render correctly.
 The absolute offsets (12319, and the object-area end) are for a design of around 18 KB. Derive
 them per file rather than copying the numbers.
 
-## What is missing for a complete circuit
+## What failed when I re-tested it
 
-Three things, in the order they would bite you:
+Four files, one install, each opened with
+`Start-Process ISIS.EXE -ArgumentList '"<path>"'` and left alone for 25 to 45 seconds:
 
-Wires. The format is known - `00 00`, a u16 point count, then the points - but a wire has to
-start and end on a pin, which means knowing every part's pin offsets in the same 10 nm grid.
-Those were extracted for 36 parts into a table, and they look right, but nobody has built a
-connected design from them yet.
+| file | edit | result |
+| --- | --- | --- |
+| `base2_nudge.DSN` | moved one part's x by 0.5 in, no change in size | loads, title gains the file name |
+| `build_nand.DSN` | two NAND records inserted, lifted from a different design | crash dialog |
+| `build_nand_same.DSN` | the same two records, lifted from the base design itself | crash dialog |
+| `gen_u3b.DSN` | one record inserted by the earlier version of this recipe | never loads, no dialog |
 
-Part coverage. You need a template record for every part in the design, and there is no way to
-synthesise one, so coverage is limited by which samples contain the parts.
+The template's origin is not the variable, and neither is the part. An empty design plus a
+single resistor and no wires failed the same way. The one thing every failing file has in
+common is that it is a different size from the design it came from.
 
-Verification. Placing parts and wires and then checking the netlist is compiled without errors
-is the acceptance test that matters, and it has not been done end to end.
+Two failure shapes, both worth recognising:
 
-For a one-off report, the GUI is faster. For "make me forty variants of this circuit", the
-file route is worth finishing, and the round-trip test above - script writes, ISIS opens and
-saves, parse the result, diff against ISIS's own output - is the way to know you got it right.
+The crash dialog is a small top-level window with the same title as the main window, roughly
+message-box sized, sitting somewhere in the middle of the screen. If you only read the big
+window's title bar you will not see it. Its text is
+`access violation in module VGDVCDLL ... ISIS Professional 处于不稳定的状态`.
+
+The silent shape looks like the application simply did nothing: ISIS opens an empty workspace
+and never shows a dialog. This is what I described as a hang in the earlier version of this
+file. It was a load that never completed, and waiting longer does not help.
+
+### Telling whether a design loaded
+
+Pass the path on the command line, wait about 20 seconds, read the window title:
+
+| title | meaning |
+| --- | --- |
+| `base2 - ISIS Professional` | loaded |
+| `ISIS Professional` | did not load |
+| `ISIS Professional (未响应)` | crashed; the dialog is a second window, and a ghost one owned by pid 8 shows up as well |
+
+This costs nothing and it catches the silent case, which is the one that otherwise ruins an
+afternoon. A title with no file name next to it is never good news.
+
+`scripts/design_loadcheck.ps1 -Path <design>` does exactly this and reports the three cases:
+exit 0 loaded, 1 rejected silently, 2 rejected with a dialog. It closes the instance again
+unless you pass `-KeepOpen`, and it is safe to point at a copy you do not mind losing.
+
+### The path is not the problem
+
+An obvious suspect is the Chinese characters in the folder name, since ISIS 7 predates
+unicode paths. It does not hold up: `base2.DSN` loaded from `C:\Users\yangf\dsn_smoke\` and from
+`C:\Users\yangf\dsn_smoke\中文测试\` with the same result, and the generated files crashed from
+both. Test the path separately before blaming it.
+
+## What that leaves
+
+Reading a design holds up, and so does editing one without changing its size: the coordinate
+patch loads and the part sits where the patch puts it, and the same-length rename from earlier
+round-tripped through a save from inside ISIS. Adding a wire is in the failing group with
+adding a part, which fits - both grow the object area.
+
+Something validates the size of the object area and I have not found it. The candidate is the
+tail of the file: the second `OBJECT DATA` section and the name list after it, whose entries
+carry two-byte ids rather than record offsets. Until that is decoded, the file route is for
+reading and for same-size edits.
+
+For building a schematic, drive the GUI. It is slower for one design and it is the only thing
+that produced designs ISIS would open - see [proteus.md](proteus.md) for the placement
+sequence, which takes three clicks per part and is worth getting right before trying to script
+it.

@@ -73,8 +73,11 @@ whole.
 
 ## Adding a part
 
-Verified end to end. Take a record that ISIS itself produced for that part, insert it before
-the second `ISIS CIRCUIT FILE` marker, and fix up the four places that track lengths:
+This is the one thing in this file that did not survive re-testing - in September 2026 every
+design built this way failed to load. The byte layout below is still what the edit does; the
+re-test is in [dsn-generate.md](dsn-generate.md). Take a record that ISIS itself produced for
+that part, insert it before the second `ISIS CIRCUIT FILE` marker, and fix up the four places
+that track lengths:
 
 - the u16 "next id" counter at the first `ISIS CIRCUIT FILE` marker plus 19;
 - a u16 near offset 12319 in small designs whose value is the object-area end plus 48;
