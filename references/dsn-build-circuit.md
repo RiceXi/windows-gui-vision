@@ -81,36 +81,48 @@ measuring it once and adding six numbers; after that, circuits can be written in
 and pins rather than coordinates. The routing is a single midpoint bend, which is fine for the
 stub in the example and not a replacement for a real router.
 
-## A second wire in one file still crashes
+## A second wire in one file: what turned out to be wrong
 
 A build with four instances and four nets came back as a crash rather than a design, and the
-isolation is clean:
+isolation was clean: instances are fine, one wire is fine, two wires crash. The cause was not the
+insertion point, which is what the earlier attempts kept changing. It was that **the insert also
+moves every pointer in the file that pointed past it**, and the writer was leaving those stale. A
+stale pointer is what the loader dereferences when it crashes, and it is invisible in a walk of
+the objects because the object list itself still looks right.
 
-| build | result |
-| --- | --- |
-| four instances, no wires (which crosses into a new package, `U5:A`) | loads |
-| four instances, one wire | loads |
-| four instances, two wires well apart | crashes |
-| four instances, four wires | crashes |
+With the relocation in place - a four byte field whose value is the offset of a shared 15 byte
+tail block gets the inserted length added - the writer now reproduces Isis's own output byte for
+byte on the two ground truths that exist for this design (one wire added: 21670 bytes; a second
+one added: 21720 bytes, see [dsn-wires.md](dsn-wires.md)). The second wire also needs a different
+shape: Isis hands it the *pending body* of the record in front of the first wire rather than the
+last wire's body, which is what `dsn_add_wire.py --mode head` does.
 
-So instances are fine and one wire is fine; the second wire is where it goes wrong. The first
-guess was that the second insertion was reusing the first one's offset, and that did show up - two
-wires both reported `inserted_at 14864` - but fixing it so they insert at 14864 then 14930, which
-is where the chain says they belong, still crashes, and two wires with no instances at all crash
-the same way. So the tool leaves the file in a state its own next call does not understand, and
-`last_wire()` looks right in a debug print (after one insert it does point at the new wire, with
-four points and the tail block where it should be), which means the state that is wrong is
-somewhere other than that lookup.
+What is still not solved is doing that reliably a third and fourth time, and the way it showed up
+is worth recording because the cheap test hid it. A four-instance, four-wire build - the latch
+below - passes `design_loadcheck.ps1`: Isis accepts the file and the title names it. Opening it and
+saving from inside the application then writes back a design holding **two of the five packages**:
+the object area had been read part way and the rest dropped. A partial load looks like a load.
 
-Until that is fixed, `dsn_build_circuit.py` is reliable for instances and for a single wire. Two
-workarounds: run one wire per design and merge afterwards, or write the wires from the editor
-after the parts are placed, which the instance side makes cheap.
+`scripts/dsn_savecheck.ps1` is the test that catches this: open, save from inside the app, close,
+compare the reference designators and the wire count. Load-tested constructions:
 
-Drawing two wires by hand to get this ground truth also has a catch worth writing down: the second
-wire has to start somewhere the first one did not touch, and the run above ended with the file
-132 bytes larger rather than the 164 two wires would need, so only one of the two gestures landed.
-The pair to compare is `BC_pick5.DSN` against a copy with two hand-drawn wires that can be shown
-to contain both.
+| construction | wires | load check | save check |
+| --- | --- | --- | --- |
+| `end` | 7 | yes | full load |
+| `end`, `head` | 8 | yes | - |
+| `end`, `head`, `end` | 9 | yes | - |
+| `end`, `head`, `end0`, `end0` (the latch) | 10 | yes | partial, two packages survive |
+| `end`, `end` | 8 | crash | - |
+
+So `dsn_build_circuit.py` stays reliable for instances and for a first wire, and the two-wire
+recipe is `end` then `head`. Beyond that the loader is still sensitive to state this model does
+not capture, and the honest position is that the file route is verified per design, not in
+general - run the save check on anything it produces.
+
+Two of the tools that came out of this are worth using on any new design class: `dsn_walk.py`
+prints the wire section (bodies, tail blocks, pointer fields) so the assumptions can be checked
+before writing, and `dsn_diff.py` prints the diff between two saves, which is how the two
+transformations above were pinned down.
 
 ## What is not solved
 

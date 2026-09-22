@@ -1,110 +1,129 @@
 # Wires in a .DSN
 
-Status, September 2026, ISIS 7.08 SP2: adding a wire by script now works and the file it
-produces loads. `scripts/dsn_add_wire.py` does it. One part of it - locating the two link
-fields - still has to be told where they are; everything else is automatic.
+Status, September 2026, ISIS 7.08 SP2. Adding a wire by editing the file works, and for the
+design family this was measured on the result is now **byte-identical to what Isis itself
+writes**, apart from the two byte stamp it rewrites on every save. Multi-wire designs are the
+part that is not finished: see the load test table at the bottom before relying on it.
 
-## What a wire record looks like
+`scripts/dsn_add_wire.py` does the writing, `scripts/dsn_walk.py` reads a design's wire
+section back so you can see what you are editing, and `scripts/dsn_diff.py` is the comparison
+tool the whole thing was worked out with.
+
+## How a wire is stored
 
 ```
-FF FF FF 00 FF FF FF 00 | 02 7F "WIRE" 00 | 00 00 | u16 point count | points | 15 bytes
-    8 byte prefix            9 byte header              count at +9        int32 pairs
+FF FF FF 00 FF FF FF 00 | 02 7F "WIRE" 00 | 00 00 | u16 point count | points | body
+     8 byte prefix          9 byte header           count at +9       int32 pairs
 ```
 
-so a wire costs 34 + 8n bytes for n points, and the point count sits at offset 9 from the
-`02`, not at the end of the header. Points are (x, y) int32 pairs in 10 nm units, the same grid
-as everything else.
+so a wire's own record is 34 + 8n bytes for n points, with points as (x, y) int32 pairs. What
+follows the points is the wire's **body**, and that is where the rest of the wire lives: a
+`01` tag with a point and a list of tail offsets, or a `30` tag with a point, or an attachment
+list of named properties, and at the very end a **15 byte tail block**:
 
-Nearly every wire in Labcenter's samples carries the same prefix and the same 15 trailing
-bytes, which is why it looked like a fixed frame for a while. It is not: the trailer holds
-style and connectivity fields, and the values seen in one design (`00 1D 00 00 00 00 C0 9E 00
-00 00 40 00 00 01`) are not universal.
+```
+00 1D 00 00 00 00 C0 9E 00 00 00 40 00 00 01      the shared default tail
+```
 
-## What ISIS does when you draw one
+That 15 byte block is not a separate object and it is not attached to the wire by position
+alone: it is what the file's many pointer fields point *at*. Every wire body ends with one,
+and most wires' bodies are nothing but the block.
 
-Draw a wire between two connection points, save, and compare against a save of the same design
-with no edits:
+The practical consequence is that the object area is position-sensitive: inserting bytes
+anywhere shifts every offset after it, and a field that used to name a tail block now names
+whatever landed on that number. A stale pointer is exactly what produces
+`access violation in module VGDVCDLL` on load.
 
-* the file grows by 82 bytes, which is a 6-point wire: 34 + 6 x 8. The autorouter bent it into
-  six points, so measure the count rather than assuming two;
-* the wire goes into the *wire section* of the object area, before the graphics and the panel,
-  not at the end of the object area;
-* the last wire's 15-byte tail block moves to the new wire, and the old wire gets the default
-  tail block `00 1D 00 00 00 00 C0 9E 00 00 00 40 00 00 01`;
-* two 2-byte link fields become the file offset of the new wire group (`0x3690` = 13968 here).
-  Each sits at the end of a run of 4-byte object offsets, one inside a component record and
-  one inside a wire record.
+## What Isis does when a wire is drawn
 
-The tail block is the part that is easy to get wrong: it is not a constant, it belongs to
-whichever wire is last, and it has to travel. Six earlier attempts at appending a wire - at the
-end of the object area, inside the wire section, duplicated, with the prefix, without it, and
-with the object id counter bumped - all crashed with `access violation in module VGDVCDLL`.
+Two saves of the same design, one edit apart (`scripts/dsn_diff.py`), show three things
+happening at once:
 
-## The recipe, verified
+1. **The new wire takes over a body.** Isis splices the new wire's record in where a body
+   already starts, hands that body to the new wire, and gives the previous owner a plain
+   default tail. Nothing is copied: the body bytes stay where they are and the records move
+   around them.
+2. **Every pointer past the insertion point is shifted** by the number of bytes inserted.
+   Recognise them the same way `dsn_walk.py` does: a four byte field whose value is the offset
+   of a 15 byte block that occurs at more than one wire body start.
+3. **The zeroed "current tail" slots get filled** with the tail offset the insert creates.
+   They sit at the end of a run of three tail offsets; a design Isis saved with no wire drawn
+   in that session has them zero.
 
-1. find the last wire object, and its 15-byte tail block;
-2. replace that block with the default one and insert at the same offset:
-   `FF FF FF 00 FF FF FF 00` + `02 7F "WIRE" 00 00 00` + point count + points + the old block;
-3. write the insertion offset into the two link fields;
-4. add the length inserted to the object-area end field at head-4.
+Where the new wire goes depends on the design's state, and there are two shapes:
 
-Done that way, the result is byte-for-byte what ISIS itself writes, except for a volatile stamp
-and five single-byte fields that it also touches and that do not affect loading. Both halves
-were tested separately: with the link fields written (F) ISIS opens the design; with everything
-except them (G) it crashes. `scripts/dsn_add_wire.py` reproduces the working version exactly.
+| shape | when | what moves |
+| --- | --- | --- |
+| `end` | nothing pending at the head record | the last wire's body travels to the new wire |
+| `head` | the record before the first wire still carries a pending body (`01` tag + point + tail refs) | that pending body travels to the new wire, and the record keeps a plain tail |
 
-And the round trip holds. A design with a script-added wire, opened in ISIS and saved from
-inside it, came back with seven wires instead of six and the new one still routed through the
-same six points: `(0.7, 0.8) (0.7, 0.9) (0.8, 0.9) (0.8, -0.4) (0.7, -0.4) (0.7, -0.3)`. ISIS
-normalises the file on save - 18515 bytes became 18467 - but it kept the wire, which is the
-acceptance test that matters.
+Both are byte-verified against Isis's own output:
 
-It is also really drawn, not just recorded. Subtracting a capture of the design without the
-wire from one with it leaves 163 pixels of ink in a box spanning design x 0.62..0.72, y -0.29..0.99
-- the route, to scale. The same check on an appended *part* finds 35 pixels, all of them the
-reference designator; that difference is what separates a real object from a phantom one, and
-it is worth running on anything a script writes.
+* `end`: five instances, one wire drawn by Isis (6 points, autorouted). Reproducing it gave
+  21670 bytes, identical to Isis's save except the stamp and one flag byte at the end of the
+  file that Isis clears.
+* `head`: the same design with a **second** wire drawn by Isis. Reproducing it gave 21720 bytes,
+  identical except the stamp.
 
-## The one thing still manual
+Both ground truths came out of the same recipe, which is the one worth reusing:
 
-The two link fields have to be pointed at with `--link <offset>`. Their meaning is not pinned
-down yet - they sit at the end of offset lists inside the objects involved, and the value is the
-new wire's offset - so the way to find them for a different design is to repeat the measurement:
+1. copy the design, open it in Isis, save, close - that is the baseline (do **not** compare
+   against the pristine file: Isis normalises on save and the diff drowns);
+2. copy the baseline, open, make one edit, save, close;
+3. diff the pair. The changed fields are the whole specification of the edit.
 
-1. save the design once with no changes, save a copy with one wire drawn by hand;
-2. diff the two files;
-3. the fields that became the insertion offset are the ones to pass in.
+## What the load tests say
 
-The hypothesis worth testing next is that they belong to the two objects whose pins the wire
-connects, in which case they could be located from the wire's endpoints and the whole thing
-becomes automatic.
+Two tests, and the weak one has to come first because it is the cheap one:
 
-`--find-links` shortens the search. In this design the two fields are the only 2-byte zeros
-preceded by a run of three 4-byte offsets that land inside the object area, and it prints
-exactly those two. The four 2D graphic objects have similar-looking lists with two offsets
-each, so the threshold is what separates them - treat the output as a shortlist and confirm it
-against a hand-drawn wire before trusting it on an unfamiliar design.
+* `scripts/design_loadcheck.ps1` - does Isis accept the file. Exit 0 yes, 1 silently refused, 2
+  crash dialog. **This is not enough on its own**: a design whose object area is damaged part
+  way through loads *partially*, and the title still names the file.
+* `scripts/dsn_savecheck.ps1` - opens it, saves from inside the application, closes it, and
+  compares the reference designators and wire count before and after. A clean design comes back
+  unchanged; one that only partly loaded comes back with the objects after the damage missing.
+  This is the test that matters for anything a script writes.
 
-## The comparison that produced this
+On the five-instance base design:
 
-Two saves of the same build, one edit apart:
+| construction | wires | load check | save check |
+| --- | --- | --- | --- |
+| one insert, `end` | 7 | yes | full load (a previous round trip kept all seven wires) |
+| `end` then `head` | 8 | yes | - |
+| `end`, `head`, `end` | 9 | yes | - |
+| four instances plus four wires (`end,head,end0,end0`) | 10 | yes | **partial: Isis kept two of the five packages** |
+| `end` then `end` | 8 | **crash** | - |
+| one insert, `end`, on a Labcenter sample (Counter5) | 12 | **crash** | - |
 
-1. copy the design, open it, save it, close it - that is the baseline, and it is not the same
-   bytes as the file you started from, because ISIS normalises on save;
-2. copy the design again, open it, draw the wire, save, close;
-3. diff the two saved files.
+So the rules above reproduce what Isis writes, and a one-wire insert lands whole, but a
+multi-wire file is not trustworthy yet: the same edits in a different order crash, and the
+four-wire build passes the load check while having lost most of the design. What the model is
+still missing is somewhere in the interaction between the section header, the junction records
+and the attachment lists - the reference design has all three, including a wire carrying a
+`$DIGGEN` property, and a sample design with a different section header crashed on the very
+first insert.
 
-Diffing an ISIS save against the pristine original gives thousands of differences that have
-nothing to do with the edit. The earlier mistake in this repository was doing exactly that.
+Until that is understood, the file route is for instances and for one wire, and the save check
+is what tells you whether you got away with more.
 
-`scripts/proteus_input.ps1` does the input - including closing the notice window that
-otherwise eats every canvas click - and `references/coords.md` has the pointer-to-design
-mapping that makes the clicks land on the right pins.
+## Reading your own design first
 
-## What this means today
+Before writing anything into a design, look at what its section header looks like:
 
-Both halves of a schematic can now be produced by script: components with
-[dsn-append.md](dsn-append.md), wires with `dsn_add_wire.py`. Wiring through the GUI also works
-and is no longer guesswork - the pointer-to-design mapping is measured
-([coords.md](coords.md)), the notice window that swallowed clicks is closed first, and the
-clicks are verified by diffing the saved design against a saved baseline.
+```
+python scripts/dsn_walk.py design.DSN
+```
+
+If there are no shared tail blocks, no pointer fields, or the record before the first wire
+does not look like anything described above, the writer's assumptions do not hold for that
+file and it needs the two-save diff treatment before it can be trusted.
+
+## The tools
+
+| script | what it is for |
+| --- | --- |
+| `dsn_walk.py` | read a design: wires, points, bodies, tail blocks, pointer fields |
+| `dsn_diff.py` | diff two saves byte by byte, with context |
+| `dsn_add_wire.py` | write a wire (`--mode end` or `--mode head`) |
+| `dsn_add_instance.py` | add an instance of a device the design already embeds |
+| `design_loadcheck.ps1` | does it load: exit 0 yes, 1 silently refused, 2 crash dialog |

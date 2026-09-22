@@ -29,9 +29,11 @@ spec that wants to wire parts should also give each of them a `label`:
 and the nets refer to the labels. A net is routed as an orthogonal path on the 0.1 inch grid.
 Wires can still be given as raw point lists when the table has nothing for a device.
 
-Each part must belong to a device the base design already embeds, and each wire needs a link
-field offset from that design - which this finds the same way dsn_add_wire.py --find-links does,
-so a design that has never had a wire written to it is the case to check first.
+Each part must belong to a device the base design already embeds, and the wire writer has to know
+which shape each wire takes. Isis uses `end` for the first wire it adds to a design and `head`
+for the second, and both are byte-verified; the third and later go back to `end`, which is the
+combination that load-tested clean. If the design has had wires added outside this run, that
+sequence starts in the wrong place - see references/dsn-wires.md.
 
 This is a thin orchestrator on purpose: dsn_add_instance.py and dsn_add_wire.py do the work and
 carry their own notes about what is verified. What this adds is doing them in order on one file
@@ -40,12 +42,11 @@ and checking the result loads.
 import argparse
 import json
 import os
-import struct
 import sys
 
 sys.path.insert(0, __file__.rsplit("\\", 1)[0])
 from dsn_add_instance import append_instance                     # noqa: E402
-from dsn_add_wire import add_wire, find_link_fields              # noqa: E402
+from dsn_add_wire import add_wire                                # noqa: E402
 
 MARKER = b"ISIS CIRCUIT FILE"
 
@@ -70,7 +71,15 @@ def route(a, b):
     return [a, [mid_x, y1], [mid_x, y2], b]
 
 
-def build(base_path, spec, out_path, pins_path):
+def wire_modes(count, override=None):
+    """`end` first, `head` second, `end` after that - the sequence that load-tested clean."""
+    if override:
+        modes = [m.strip() for m in override.split(",") if m.strip()]
+        return [modes[min(i, len(modes) - 1)] for i in range(count)]
+    return ["end", "head"] + ["end"] * max(0, count - 2)
+
+
+def build(base_path, spec, out_path, pins_path, modes=None):
     data = open(base_path, "rb").read()
     steps = []
     anchors = {}
@@ -99,15 +108,12 @@ def build(base_path, spec, out_path, pins_path):
         for a, b in zip(points, points[1:]):
             wires.append({"points": route(a, b)})
 
-    for w in wires:
-        # The link offsets move with every insertion, so find them per wire. Looking them up once
-        # and reusing the list puts the second wire's patches inside the first one, and ISIS
-        # crashes on the result.
-        head = data.find(MARKER)
-        tail = data.find(MARKER, head + 1)
-        links = [off for off, _cnt, _offs in find_link_fields(data, head, tail)]
-        data, info = add_wire(data, [tuple(p) for p in w["points"]], links)
-        steps.append("wire of %d points at %s" % (len(w["points"]), info["inserted_at"]))
+    chosen = wire_modes(len(wires), modes)
+    for w, mode in zip(wires, chosen):
+        info = add_wire(data, [tuple(p) for p in w["points"]], mode=mode)
+        data = info["data"]
+        steps.append("wire of %d points, %s, spliced at %d, %d pointer(s) moved"
+                     % (len(w["points"]), mode, info["inserted_at"], len(info["moved"])))
 
     open(out_path, "wb").write(data)
     return data, steps
@@ -120,10 +126,12 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--pins", default=os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                    "pin_tables.json"))
+    ap.add_argument("--modes", default=None,
+                    help="wire shapes in order, default 'end,head,end' repeating the last")
     args = ap.parse_args()
 
     spec = json.load(open(args.spec, encoding="utf-8"))
-    data, steps = build(args.base, spec, args.out, args.pins)
+    data, steps = build(args.base, spec, args.out, args.pins, args.modes)
     for s in steps:
         print("  " + s)
     print("wrote %s (%d bytes, %d parts, %d wires)"
