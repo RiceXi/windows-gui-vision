@@ -7,6 +7,13 @@ the same design after four more), and the writer's output was compared against t
 
 ## Where the wire record goes
 
+**But see [dsn-wire-load-test.md](dsn-wire-load-test.md) first, because that position does not
+load.** A wire spliced in beside a part's own record - the shape Isis writes when you draw onto a
+pin - makes the loader fail with an access violation, because the objects are indexed by the
+second section and Isis rewrites that index on every save. The shape a script has to write is the
+wire section at the end of the object area: `--mode end`, then `head`, then `end0`, then `end`
+for each wire after that, with the pin slots filled as below.
+
 An instance's record is 420 bytes as the instance list counts them, but the wire is spliced in at
 the **last byte of that span**, one byte before the next object's `ff 04 <ref>` marker:
 

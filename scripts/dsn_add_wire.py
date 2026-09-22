@@ -185,104 +185,102 @@ def pin_slot(d, start, index):
     return start + 403 + 4 * index
 
 
+def fill_slots(d, slots, at, delta):
+    """Point each pin's connection slot at the tail block this insert creates.
+
+    A pin carries one wire, so a slot that is not zero means the pin is taken - Isis refuses the
+    second wire, and so does this. The fill runs after the splice, so a slot that ended up behind
+    the insertion has already moved by `delta`.
+    """
+    filled = []
+    for ref, idx, off in slots:
+        if off >= at:
+            off += delta
+        if u32(d, off):
+            print("  warning: %s pin %d already names a wire (%d); leaving it alone"
+                  % (ref, idx, u32(d, off)))
+            continue
+        struct.pack_into("<I", d, off, at)
+        filled.append((ref, idx, off))
+    return filled
+
+
 def add_wire(base, points, mode="end", out=None, after_part=None, pin=None,
              link_part=None, link_pin=None):
+    """Write one wire. `mode end` goes into the wire section; `after_part` goes in a part's group.
+
+    Only the wire section loads. Inserting the record into the middle of the object area - which
+    is where Isis itself puts a wire drawn onto a pin - makes the loader fail with an access
+    violation, because the objects are indexed by the second section and a mid-area insert has to
+    rewrite that index; measured on the five instance base, in both the byte position Isis uses
+    and the one this writer used before. `after_part` is kept because it reproduces Isis's own
+    bytes exactly, for a design that is going to be finished by hand in the application.
+    """
     d = bytearray(base)
     head = d.find(MARKER)
     tail = d.find(MARKER, head + 1)
     if min(head, tail) < 0:
         raise SystemExit("not an ISIS design file")
-    if after_part:
-        # a wire attached to a part's pin: it goes in that part's group, at the last byte of the
-        # part's own record, and the part's pin slot gains the new wire
-        start, at = part_span(d, head, tail, after_part)
-        tails = tail_offsets(d, head, tail)
-        slots = []
-        if pin:
-            slots.append((after_part, pin, pin_slot(d, start, pin)))
-        if link_part and link_pin:
-            lstart, _ = part_span(d, head, tail, link_part)
-            slots.append((link_part, link_pin, pin_slot(d, lstart, link_pin)))
-        rec = bytearray(PREFIX + b"\x02\x7fWIRE\x00\x00\x00")
-        rec += struct.pack("<H", len(points))
-        for x, y in points:
-            rec += struct.pack("<ii", int(round(x * UNITS)), int(round(y * UNITS)))
-        old = bytes(d[at:at + 15])
-        rec += old
-        delta = len(rec)
-        moved = relocate(d, tails, at, delta)
-        d[at:at + 15] = DEFAULT_TAIL + bytes(rec)
-        filled = []
-        for ref, idx, off in slots:
-            if off < at:
-                pass                      # the slot sits in front of the insert and did not move
-            else:
-                off += delta
-            if u32(d, off):
-                print("  warning: %s pin %s already has a wire (slot %d = %d); leaving it alone"
-                      % (ref, idx, u32(d, off), u32(d, off)))
-                continue
-            struct.pack_into("<I", d, off, at)
-            filled.append((ref, idx, off))
-        struct.pack_into("<I", d, head - 4, u32(d, head - 4) + delta)
-        marker = d.find(MARKER, head + 1)
-        for off in range(tail, len(d) - 4):
-            if u32(d, off) == tail:
-                struct.pack_into("<I", d, off, marker)
-                break
-        if out:
-            open(out, "wb").write(bytes(d))
-        return dict(data=bytes(d), inserted_at=at, inserted=delta, moved=moved, filled=filled,
-                    tails=len(tails))
-    ws = wires(d, head, tail)
-    if not ws:
-        raise SystemExit("no wire in this design; there is nothing to append beside")
-    tails = tail_offsets(d, head, tail)
+
+    # the connection entries, resolved before anything moves: one slot per pin the wire lands on
+    pin_slots = []
+    for ref, idx in list(pin or []) + [(link_part, link_pin)]:
+        if ref and idx:
+            start, _ = part_span(d, head, tail, ref)
+            pin_slots.append((ref, idx, pin_slot(d, start, idx)))
 
     rec = bytearray(PREFIX + b"\x02\x7fWIRE\x00\x00\x00")
     rec += struct.pack("<H", len(points))
     for x, y in points:
         rec += struct.pack("<ii", int(round(x * UNITS)), int(round(y * UNITS)))
 
-    filled = []
-    if mode == "head":
-        t = d.rfind(DEFAULT_TAIL, head, ws[0][0] - 8)
-        if t < 0:
-            raise SystemExit("no head tail block found")
-        run = run_start(d, head, t, tails)
-        at = run - 9                       # the tag byte plus an eight byte point
-        if at < head or d[at] != 0x01:
-            at = run
-        slots = [off for off in pending_slots(d, head, t + 15, tails)
-                 if not (at <= off < t + 15)]
-        delta = 8 + 11 + 8 * len(points) + 15
-        moved = relocate(d, tails, at, delta)
-        body = bytes(d[at:t])
-        keep = bytes(d[t:t + 15])
-        d[at:t + 15] = DEFAULT_TAIL + bytes(rec) + body + keep
-        for off in slots:
-            struct.pack_into("<I", d, off + (delta if off >= at else 0), at)
-            filled.append(off)
-    else:
-        o, n = ws[-1]
-        at = body_offset(o, n)
-        body = bytes(d[at:at + 15])
-        rec += body
+    tails = tail_offsets(d, head, tail)
+    if after_part:
+        start, at = part_span(d, head, tail, after_part)
+        rec += bytes(d[at:at + 15])
         delta = len(rec)
-        slots = empty_slots(d, head, tail, tails) if mode == "end" else []
         moved = relocate(d, tails, at, delta)
-        if mode == "end0":
-            # the layout an earlier version wrote: the record in front of the tail block
-            d[at:at + 15] = DEFAULT_TAIL
-            d[at:at] = bytes(rec)
+        d[at:at + 15] = DEFAULT_TAIL + bytes(rec)
+    else:
+        ws = wires(d, head, tail)
+        if not ws:
+            raise SystemExit("no wire in this design; there is nothing to append beside")
+        if mode == "head":
+            t = d.rfind(DEFAULT_TAIL, head, ws[0][0] - 8)
+            if t < 0:
+                raise SystemExit("no head tail block found")
+            run = run_start(d, head, t, tails)
+            at = run - 9                   # the tag byte plus an eight byte point
+            if at < head or d[at] != 0x01:
+                at = run
+            pending = [off for off in pending_slots(d, head, t + 15, tails)
+                       if not (at <= off < t + 15)]
+            delta = 8 + 11 + 8 * len(points) + 15
+            moved = relocate(d, tails, at, delta)
+            body = bytes(d[at:t])
+            keep = bytes(d[t:t + 15])
+            d[at:t + 15] = DEFAULT_TAIL + bytes(rec) + body + keep
+            for off in pending:
+                struct.pack_into("<I", d, off + (delta if off >= at else 0), at)
         else:
-            d[at:at + 15] = DEFAULT_TAIL + bytes(rec)
-        for off in slots:
-            target = off + (delta if off >= at else 0)
-            if target < at or target >= at + delta:
-                struct.pack_into("<I", d, target, at)
-                filled.append(off)
+            o, n = ws[-1]
+            at = body_offset(o, n)
+            rec += bytes(d[at:at + 15])
+            delta = len(rec)
+            pending = empty_slots(d, head, tail, tails) if mode == "end" else []
+            moved = relocate(d, tails, at, delta)
+            if mode == "end0":
+                # the layout an earlier version wrote: the record in front of the tail block
+                d[at:at + 15] = DEFAULT_TAIL
+                d[at:at] = bytes(rec)
+            else:
+                d[at:at + 15] = DEFAULT_TAIL + bytes(rec)
+            for off in pending:
+                target = off + (delta if off >= at else 0)
+                if target < at or target >= at + delta:
+                    struct.pack_into("<I", d, target, at)
 
+    filled = fill_slots(d, pin_slots, at, delta)
     struct.pack_into("<I", d, head - 4, u32(d, head - 4) + delta)
     marker = d.find(MARKER, head + 1)          # the field naming the second section
     for off in range(tail, len(d) - 4):
@@ -306,17 +304,24 @@ def main():
     ap.add_argument("--after-part", default=None,
                     help="reference like U3:C: the wire belongs to that part, so it goes at the "
                          "end of the part's own record instead of into the wire section")
-    ap.add_argument("--pin", type=int, default=None,
-                    help="which pin of --after-part the wire lands on, counted from 1 in the "
-                         "part's pin-map order; that pin's slot in the record gains the wire")
+    ap.add_argument("--pin", action="append", default=None, metavar="REF:PIN",
+                    help="a pin the wire lands on, counted from 1 in the part's pin-map order; "
+                         "that pin's slot in the part's record gains the wire. Repeat it for the "
+                         "other end. Example: --pin U3:C:2 --pin U3:B:3")
     ap.add_argument("--link-part", default=None, help="the part at the wire's other end")
     ap.add_argument("--link-pin", type=int, default=None, help="and its pin, same counting")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
+    pins = []
+    for spec in args.pin or []:
+        ref, _, idx = spec.rpartition(":")
+        if not ref or not idx.isdigit():
+            raise SystemExit("--pin wants REF:INDEX, got %r" % spec)
+        pins.append((ref, int(idx)))
     pts = [tuple(float(v) for v in p.split(",")) for p in args.points]
     info = add_wire(open(args.base, "rb").read(), pts, mode=args.mode, out=args.out,
-                    after_part=args.after_part, pin=args.pin, link_part=args.link_part,
+                    after_part=args.after_part, pin=pins, link_part=args.link_part,
                     link_pin=args.link_pin)
     print("wrote %s: %d bytes (+%d), %d points, spliced at %d"
           % (args.out, len(info["data"]), info["inserted"], len(pts), info["inserted_at"]))

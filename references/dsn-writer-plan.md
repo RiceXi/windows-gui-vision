@@ -46,11 +46,18 @@ them in (see `dsn-embedded-definitions.md`: the first section grew from 13 KB to
 open-and-save round trip. That round trip needs a person at the launch unless the modal notice
 can be dismissed by automation, which is the one automation gap left.
 
+The round trip turns out to be what makes a *wire* stick as well: it rewrites the second section's
+index, which a script cannot. Wires written into the wire section do load, in the sequence
+`end`, `head`, `end0`, then `end` - the table of what loaded and what crashed is in
+[dsn-wire-load-test.md](dsn-wire-load-test.md).
+
 ## Still open
 
 Five u16 counters (16137, 16191, 16387, 16575, 16839 in this base) are recomputed by Isis on every
 save and the writer leaves them stale. Everything else in the file now matches Isis's own output
 for the first hand edit. Whether those five matter for a design with several new wires is the
-question the save round trip answers: `wiretest.DSN` (five wires, one shared endpoint) is the test
-file, and `scripts/dsn_savecheck.ps1` is the check - open, save from inside the application, and
-confirm that every instance and wire is still there.
+question the save round trip answers in
+[dsn-wire-load-test.md](dsn-wire-load-test.md); they sit inside the embedded device definitions,
+so they are more likely per-definition pool counts than anything a wire edit has to move.
+`scripts/dsn_savecheck.ps1` is the check for the round trip itself - open, save from inside the
+application, and confirm that every instance and wire is still there.

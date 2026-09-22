@@ -116,6 +116,7 @@ json and scratch scripts belong in a sibling working directory.
 | [dsn-append.md](references/dsn-append.md) | adding a component to a `.DSN` from a script, verified, and what is still missing |
 | [dsn-wires.md](references/dsn-wires.md) | adding a wire by script: the tail block, the link fields, and the verified recipe |
 | [dsn-wire-slots.md](references/dsn-wire-slots.md) | **the current wire rule**: splice point, the per-pin connection slots, and the byte check behind them |
+| [dsn-wire-load-test.md](references/dsn-wire-load-test.md) | **which written wires the loader accepts**: the shape sequence that loads, and the positions that crash |
 | [dsn-writer-plan.md](references/dsn-writer-plan.md) | what of the writer is done, what is left, smallest first |
 | [dsn-part-group.md](references/dsn-part-group.md) | a part's record and the wires it owns, measured section by section |
 | [dsn-hand-wire.md](references/dsn-hand-wire.md), [dsn-connection-list.md](references/dsn-connection-list.md), [dsn-tap-junction.md](references/dsn-tap-junction.md) | the hand-drawn ground truths these rules came from |
@@ -136,8 +137,10 @@ order - instances first, then wires - and the write-up at
 [dsn-build-circuit.md](references/dsn-build-circuit.md) says what has to be true of the base
 design before it can.
 
-For the wire half, `scripts/dsn_add_wire.py --after-part <ref> --pin <n>` writes a wire the way
-Isis does, including the connection slot on each pin it lands on, and
-`scripts/dsn_rec_diff.py` compares two designs part by part - which is how the layout was read.
-Building a net with three or more pins does not need a tap: route it as segments that share an
-endpoint.
+For the wire half, `scripts/dsn_add_wire.py --pin REF:INDEX` (repeat it for the other end) writes
+the wire and the connection slot on every pin it lands on. Write wires into the wire section, in
+the shape sequence `end`, `head`, `end0`, then `end` for each wire after that - that is the
+sequence the loader accepts; `references/dsn-wire-load-test.md` has the measurements, including
+the group shape that crashes. `scripts/dsn_rec_diff.py` compares two designs part by part, which
+is how the layout was read. Building a net with three or more pins does not need a tap: route it
+as segments that share an endpoint.
