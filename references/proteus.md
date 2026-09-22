@@ -89,6 +89,18 @@ connection points at all, and the pin offset that the design's older parts of th
 answer to did not work on it. Until that is measured, a newly placed part can be positioned but
 not scripted-wired.
 
+`scripts/proteus_probe_pins.ps1` is the instrument for that question, and it is worth knowing it
+works before trusting a negative answer from it. It walks a grid of points, clicking each and
+then clicking a pin known to work, and pressing Escape after each pass; a wire appears in the
+saved design only if the candidate was a connection point.
+
+Run against a pin that is known good, 9 candidates around (0.7, 0.8), it produced exactly one
+wire and it ran through the expected route - so the method is sound. Run against a part the
+script had just placed, with 60 candidates spread over its symbol including the ends of its
+lead lines, it produced none. The reading is that those parts do not answer at their pins, which
+makes the placement itself the suspect: three clicks place a symbol that draws and is stored,
+but the pins do not come with it.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
