@@ -398,6 +398,22 @@ else, and ISIS loads it. Adding an instance of a device a design already embeds 
 solved at the file level, and it composes with the wire writer from [dsn-wires.md](dsn-wires.md):
 place parts and route wires without the GUI.
 
+### One gap left, and where it is
+
+An instance written this way really is the part - byte-identical file, ISIS opens it, it draws -
+and its pins still do not answer a synthetic click. A 187-point probe at 0.1 inch spacing over
+one of them produced nothing, and so did the same probe over the 74LS00 that Pick Devices placed
+by hand. Compare that with the probe's control run in a Labcenter sample, where nine points
+around a known pin produced exactly one wire: there, the point being clicked is one where a wire
+already ends.
+
+So the working hypothesis is that a connection point with a wire on it answers a synthetic
+click and a bare pin does not - which matters because it is the difference between "place parts
+by script and let the GUI wire them" and "place and wire entirely by script". The way to settle
+it is to draw one wire on a fresh part by hand, save, and read the coordinates ISIS chose: those
+are that part's pin positions, measured rather than guessed, and after that the wire writer can
+be pointed at them.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
