@@ -159,6 +159,26 @@ clicks place a part in the older design, so it is not the click injection or the
 Next: try a different spot and a different gap between the clicks, and watch the preview pane
 between them rather than only before and after.
 
+Followed up, step by step, with captures between each one:
+
+| step | what changed |
+| --- | --- |
+| click the device row | list 124 px, preview pane 896 px - the device is selected |
+| move the pointer onto the canvas | canvas 45 px - the symbol follows the pointer |
+| one left click | canvas 148 px, then the canvas returns to its previous state |
+| move the pointer away | canvas 45 px back - the ghost leaves with it |
+
+The design is empty afterwards: a diff of the final capture against the empty design comes to
+zero pixels, and the file is still 6925 bytes with no part records. The status bar is the useful
+clue here. Before the click it reads `显示当前加载的元件` (showing the currently loaded
+component); with the pointer over the sheet it reads
+`COMPONENT U1:A, Value=74S00, Module=<NONE>, Device=74S00, Pinout=[74S00]`. So the device is
+loaded and held, and the click is not dropping it - nothing about the design changed.
+
+That `U1:A` is worth a second look: 74LS00 is a four-unit device, and the unit is part of the
+name. The next thing to try is a single-unit part - a resistor - to see whether the unit is what
+the drop is waiting on.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
