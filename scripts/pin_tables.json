@@ -1,8 +1,13 @@
 {
-  "note": "Pin offsets in inches, relative to the anchor an instance record carries (the two int32s at record+384 and record+388). This is the anchor stored in the file, not the point you click in the editor; references/dsn-draw-wires.md has the difference. Device names are the COMPONENT ID a design stores.",
+  "note": "Pin offsets in inches relative to the SYMBOL CENTRE. That is the one reference that does not depend on who wrote the design: the two int32s at record+384/+388 equal the centre in the designs this project's tools wrote, but not in a design Isis saved itself (fresh1.DSN reads (0.8,0.0) and (-1.2,0.0) there while the gates are drawn at (2.3,0.8) and (2.3,-1.2)). Find the centre by hovering one pin and reading the two numbers in the status bar, then subtracting that pin's offset.",
   "devices": {
     "74LS00": {
       "units": 4,
+      "offsets_from_symbol_centre": {
+        "A": [-0.5, 0.1],
+        "B": [-0.5, -0.1],
+        "Y": [0.5, 0.0]
+      },
       "offsets": {
         "A": [-0.5, 0.1],
         "B": [-0.5, -0.1],
@@ -18,6 +23,8 @@
       "unit_shapes": "all four units are drawn the same way: two inputs on the left, output on the right",
       "measured_from": "wire endpoints read out of hand_wire.DSN (hand drawn), wire_ok.DSN and multi.DSN (drawn by scripts/dsn_draw_wires.ps1). U3:A anchor (2.0,1.0): pin 1 at (1.5,1.1), pin 3 at (2.5,1.0). U3:B anchor (2.0,-1.0): pin 4 at (1.5,-0.9), pin 6 at (2.5,-1.0). U3:C: pins 10/9/8 at (-4.5,-1.4)/(-4.5,-1.6)/(-3.5,-1.5) - pin 9 is the last point of the hand-drawn wire, which ends on the pin's stub end. U4:A pin 3 at (2.0,-2.5)",
       "confidence": "A and Y measured on three units and reproduced independently by scripts/dsn_learn_pins_file.py reading the wires back out of the files; B verified from the hand-drawn wire's final point",
+      "verified_on_a_clean_canvas": "dsn_smoke/fresh1.DSN holds two gates and no wires. The user read U1:A's pins off the status bar: 1 at (1.8,0.9), 2 at (1.8,0.7), 3 at (2.8,0.8) - i.e. centre (2.3,0.8) plus exactly these offsets. A cross-coupled latch was then drawn there by scripts/dsn_draw_wires.ps1 (wires (2.8,0.8)->(1.8,-1.3) and (1.8,0.7)->(2.8,-1.2)); after a save round trip the design still holds two parts and both wires with their routes intact",
+      "calibration_recipe": "hover one pin of one instance, read the two numbers in the status bar, subtract that pin's offset to get the symbol centre, and every other pin of that instance is centre + offset. One reading per device covers every instance of it",
       "how_to_extend": "put the device in a design, wire one pin per unit, then run scripts/dsn_learn_pins_file.py over that design: it reads each instance's slots, follows them to the attached wires, and reports every wire endpoint that lies on the symbol as a pin, in pin order. references/dsn-draw-wires.md has the rules this depends on"
       "correction": "an earlier version of this file used offsets measured from a magnified crop (-0.25,0.025 / 0.69,-0.075) and they do not reproduce these wire endpoints - they were relative to a different reference point"
     },
