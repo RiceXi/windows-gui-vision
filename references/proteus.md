@@ -474,6 +474,21 @@ per-device bookkeeping - a table of pin offsets for the devices a circuit needs,
 each the way U4:A's was - and the device definitions themselves, which a design has to carry
 before any of this applies.
 
+### The pin offsets are in the device definition
+
+That table does not have to be measured by eye. A device's definition block in the header carries
+its pins with coordinates. In the 74LS00 block, the small records around the `$PINDEFAULT` and
+`$PININVERT` names hold pairs like `(-0.300, 0.100)` and `(-0.300, -0.200)` - the two inputs of
+one unit - which match the positions a magnified crop read off a placed instance (0.942 and
+(-2.466) in design inches against an anchor at (1.192, -2.292), that is offsets near (-0.25,
+0.0) and (-0.25, -0.2)) to within the crop's own accuracy.
+
+The same block also carries the symbol's drawing as a coordinate list and a run of small integers
+that look like line commands, so the block is self-describing: bounds at `(-0.3, -0.2)` to
+`(0.3, 0.2)`, the outline as pairs, then the pins. Writing a parser for it is the next step, and
+it is bounded: the files to work against are `BC_pick5.DSN` (which embeds both NAND2 and
+74LS00) and the coordinates a crop already gave for one instance to check the result against.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
