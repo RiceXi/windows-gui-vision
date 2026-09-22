@@ -71,3 +71,41 @@ Before any more attempts at the button: launch Isis, touch nothing, and poll
 window is a slow load and the answer is simply to wait; if it stays false, then a modal dialog
 really is holding the process, its own window is not the 294x136 one, and the enumeration that
 looks for "a window narrower than the main one" is looking in the wrong place.
+
+## Measured: it is modal, and the notice has no button
+
+Launched Isis, sent **no input at all**, and polled the process's windows. At t=0 the main window
+exists but is not shown yet (`vis=False`) and a 499x316 untitled window is up - the splash. A few
+seconds later the steady state is:
+
+```
+MAIN  1416x832 vis=True en=False 'poll1 - ISIS Professional'
+small  294x136 vis=True en=True  'ISIS Professional'
+```
+
+So the main window is **visible and disabled**, which is a modal state, not a slow load: nothing
+was sent to it and it stays that way.
+
+The notice itself is enabled, so it *could* take a click - it is just behind the main window.
+Raising it was tried (see the table above) and failed, so the last approach was to post the clicks
+straight to its own window handle, which ignores z-order entirely: `WM_LBUTTONDOWN` +
+`WM_LBUTTONUP` at every 16th pixel across its whole client area (288x107, about 126 positions).
+
+The main window was still disabled at the end of the sweep. Combined with everything else that
+means the notice has no button to press: it is a notification of some kind (the activation notice
+this install shows is the likely one), and the application stays disabled until a person clears it.
+
+## Where that leaves the work
+
+The GUI half of the pipeline cannot be driven from here:
+
+* nothing can be clicked while the notice is up, and no synthetic means tried so far clears it;
+* therefore no wire can be drawn, no pin can be probed, and no placement can be done;
+* the file half is understood well enough to write instances byte-exactly, to reproduce Isis's own
+  wire inserts byte for byte for the first two wires, and to carry the pin map - but whether a file
+  written that way is accepted as *wired* can only be settled by opening it in the application and
+  watching it, which is the thing that is blocked.
+
+One person at the mouse clears it: open Isis, dismiss the notice (it appears on every launch), and
+either draw one wire by hand as a reference and save, or leave the session open. Either one turns
+the GUI back into an instrument.
