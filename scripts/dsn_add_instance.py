@@ -2,20 +2,23 @@
 # -*- coding: utf-8 -*-
 """Add another instance of a device the design already embeds, by writing the file.
 
-**Status: not accepted yet.** Two placements with this script produce a file of exactly the
-right size, with the records at the right anchors, the same names, ids, sequences, unit
-counters and pin maps, and entries of the same length as ISIS's own - and ISIS still rejects it
-on load, quietly. What is left is 67 bytes in 23 runs, in two places:
+**Verified.** Two placements with this script produce a file that differs from ISIS's own by
+exactly the two-byte volatile stamp, and ISIS loads it. Getting there needed five things that
+the first attempt missed:
 
-* a record stores the point that was *clicked* as well as the anchor it ends up with, about 380
-  bytes further in. Rewriting it as plain coordinates makes ISIS crash instead of reject, so it
-  is not the simple pair it looks like and the script deliberately leaves it alone;
-* the entry's unit counter is written big-endian by this script while ISIS's own entries read
-  little-endian in that field - flipping it also turned the rejection into a crash, so it is
-  left as is pending a proper look.
+* the record's anchor appears three times, once at +6 and again in the COMPONENT ID and
+  COMPONENT VALUE blocks, the later two offset by 0.416 inch in y;
+* the point that was clicked is stored too, about 380 bytes in, and must be patched - once;
+  patching it by value alone rewrites an unrelated pair and the design crashes instead;
+* the record carries its own object id and unit number at +396, little-endian;
+* the entry's unit counter is little-endian, unlike the id and sequence at the head of the entry,
+  which are big-endian;
+* the record's last byte is the object-area sentinel `FF`, which the template's copy does not
+  have because another record followed it there.
 
-Do not use this on a design you need. The rules below are all measured and are what the next
-attempt should start from.
+`\u201cUnit counter\u201d means the value the header already holds, not one more than it - the
+stored value and the counter in the header are the same number, and the counter is incremented
+afterwards. That off-by-one was the last five bytes.
 
 Measured against ISIS 7.08 SP2, which is fussier here than anywhere else in this folder. Placing
 the same device five times in a row gave five samples to copy, and every field turned out to
@@ -170,6 +173,7 @@ def append_instance(base, device, x, y, out=None):
     # distance from the anchor: clicking stored the part 0.308 in right and 0.208 in below.
     click_dx, click_dy = int(0.308 * UNITS), int(-0.208 * UNITS)
     patched = 0
+    patched_click = 0
     i = 0
     while i <= len(rec) - 8:
         vx = struct.unpack_from("<i", rec, i)[0]
@@ -178,15 +182,27 @@ def append_instance(base, device, x, y, out=None):
             if abs(by - old_y) < UNITS * 2:          # a relative copy of the same position
                 struct.pack_into("<ii", rec, i, new_x, new_y + (by - old_y))
                 patched += 1
-        # The record also stores the point that was clicked rather than the anchor. Rewriting
-        # that too produced a design ISIS crashes on, where leaving it alone is only rejected, so
-        # the two fields are not the plain coordinates they look like. Left alone until they are
-        # understood.
+        elif vx == old_x + click_dx and patched_click == 0:
+            by = struct.unpack_from("<i", rec, i + 4)[0]
+            if by == old_y + click_dy:               # the point that was clicked
+                struct.pack_into("<ii", rec, i, new_x + click_dx, new_y + click_dy)
+                patched += 1
+                patched_click = 1
         i += 1
     print("patched the position at %d places in the record" % patched)
 
     id_counter = u16(d, head + 19)
-    unit_counter = u16(d, head + 21) + 1
+    # the counter at head+21 is one ahead of what the record and the entry store, so the stored
+    # value is the counter's own value, not the incremented one
+    unit_counter = u16(d, head + 21)
+    # the record carries its own object id and unit number too, as little-endian u16s 396 bytes
+    # in for this record type; leaving them at the template's values is what the earlier attempts
+    # did, and the design was refused for it
+    if len(rec) > 400:
+        struct.pack_into("<HH", rec, 396, id_counter, unit_counter)
+    # the record's last byte is the object-area sentinel ISIS puts after the final object; the
+    # template's copy of it is zero because a record followed it there
+    rec[-1] = 0xFF
     part_records = len(re.findall(rb"\xff\x02[\x20-\x7e]{2}", d[head:tail])) + len(names)
     seq = 1 + part_records
     tail_bytes = b"\x00" * 5
@@ -194,7 +210,7 @@ def append_instance(base, device, x, y, out=None):
         # big-endian here, unlike the entry's id and sequence, which are big-endian too but
         # written by pack() above - both orders appear in this file format and mixing them up
         # produces a design ISIS crashes on rather than merely rejects
-        t = bytearray(struct.pack(">HH", unit_counter, len(pins)))
+        t = bytearray(struct.pack("<HH", unit_counter, len(pins)))
         for key, nums in pins:
             s = str(nums[unit_no - 1])
             t += bytes([len(key)]) + key.encode()
@@ -219,7 +235,7 @@ def append_instance(base, device, x, y, out=None):
              + name.encode() + tail_bytes)
     d[anchor + len(rec):anchor + len(rec)] = entry
     struct.pack_into("<H", d, head + 19, id_counter + 1)
-    struct.pack_into("<H", d, head + 21, unit_counter)
+    struct.pack_into("<H", d, head + 21, unit_counter + 1)
     if out:
         open(out, "wb").write(bytes(d))
     return bytes(d), dict(name=name, seq=seq, id=id_counter, unit_counter=unit_counter,

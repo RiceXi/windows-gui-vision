@@ -374,6 +374,30 @@ reverted, leaving a file that is the right size and the right shape and is quiet
 That is the state to resume from: `scripts/dsn_add_instance.py` carries the same note at the
 top, and `BB_pick3.DSN` versus `BC_pick5.DSN` is the pair to diff.
 
+### Closed: the instance writer is byte exact
+
+The last 67 bytes came apart in five pieces, and two of them were the reason touching the file
+sometimes turned a rejection into a crash rather than fixing it:
+
+* the anchor is written **three** times in a record - at +6, and again in the COMPONENT ID and
+  COMPONENT VALUE blocks with a 0.416 inch offset in y - and all three have to move;
+* the point that was **clicked** is written as well, about 380 bytes in. It has to be patched,
+  but patching every matching pair rewrites an unrelated field and ISIS crashes on the result;
+  patching the first match only is what works;
+* the record carries its own object id and unit number at +396, little-endian;
+* the entry's unit counter is little-endian, while the id and sequence at the head of the same
+  entry are big-endian;
+* the record's final byte is the object-area sentinel `FF`. A template that had another record
+  after it carries `00` there instead, and ISIS will not have it.
+
+One off-by-one too: the stored unit counter is the header's own value, not one more than it -
+that alone accounted for five of the last seven bytes.
+
+With those, the script's file differs from ISIS's by the two-byte volatile stamp and nothing
+else, and ISIS loads it. Adding an instance of a device a design already embeds is therefore
+solved at the file level, and it composes with the wire writer from [dsn-wires.md](dsn-wires.md):
+place parts and route wires without the GUI.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
