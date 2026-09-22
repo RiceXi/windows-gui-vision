@@ -273,6 +273,36 @@ rejected on load).
 One more measurement for whoever picks this up: probing the drawn 74LS00 at the edges of its
 ink bounding box found no connection points, so its pins are not at the ends of that box.
 
+### Adding an instance of a device the design already embeds, byte exactly
+
+The cleanest ground truth came from placing the *same* device a second time: open the design,
+place another 74LS00, save, and diff the two saves. Three edits, and nothing else:
+
+1. **420 bytes inserted at the object-area end** - the instance record,
+   `FF 04 "U3:B" ... COMPONENT ID = 74LS00`, coordinates at offset 6. ISIS names the second
+   placement as the next unit of the same physical package: the first was `U3:A`, this one
+   `U3:B`.
+2. **26 bytes inserted in the directory** - the entry for it:
+
+   ```
+   00 11 | 00 04 | 00 00 | 00 | 04 "U3:B" | 02 00 03 00 | 01 41 01 34 | 01 42 01 35 | 01 59 01 36 | 00 x 6
+   id=17        seq=4                      ^ unit map:   "A"->4      "B"->5      "Y"->6
+   ```
+
+   The first unit's map read `01 00 03 00` with `"A"->1 "B"->2 "Y"->3` - the pin numbers of
+   that unit. The `seq` field counts *part* entries only: U1, U2, U3:A, U3:B are 1, 2, 3, 4,
+   while the graphics entries (P2C...) stay at zero.
+3. **four small fields**: the object-area end at head-4, the object id counter at head+19, a
+   second counter at head+21 - both went 16,1 then 17,2 then 18,3 as instances were added - the
+   u32 in the directory, and the entry count byte.
+
+Applying exactly those edits by script reproduces ISIS's own file byte for byte, with the
+two-byte stamp the only difference (`AX_replica.DSN` vs `AW_pick2.DSN`). That makes file-level
+instance creation a solved problem for a device the design already carries, and
+`dsn_append.py` now uses these offsets, the entry sequence rule and a pass-through
+`entry_tail` for the unit map. What is still open: the naming and counters when the placement
+opens a *new* package rather than the next unit of an existing one.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 

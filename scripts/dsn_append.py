@@ -89,6 +89,28 @@ def entry_anchor(d, count_off):
     return last if last is not None else count_off + 1
 
 
+def entry_seqs(d, count_off):
+    """The sequence field of every directory entry, in order.
+
+    Entries are [u16 id][u16 sequence][u16 0][u8 0][u8 name length][name][tail], and the tail
+    length varies: five zero bytes for most objects, twenty-two for a multi-unit device, which
+    carries a unit and pin map (`01 00 03 00 01 41 01 31 ...`). Walking them needs both the
+    name length and the tail, so this reads the parts it can and stops rather than guessing.
+    """
+    out = []
+    o = count_off + 1
+    for _ in range(64):
+        if o + 8 > len(d):
+            break
+        seq = struct.unpack_from(">H", d, o + 2)[0]
+        ln = d[o + 7]
+        out.append(seq)
+        o += 8 + ln + 5
+        if o >= len(d):
+            break
+    return out
+
+
 def append(base, record, ref=None, out=None, ref_field_len=2, entry_tail=None):
     """Return (bytes, info). ref None means an unnamed object such as a wire.
 
@@ -125,6 +147,9 @@ def append(base, record, ref=None, out=None, ref_field_len=2, entry_tail=None):
         raise SystemExit("no ROOT1 marker after the directory")
     count_off0 = root + 12
     anchor0 = entry_anchor(d, count_off0)
+    # Two counters sit just after the marker: the object id at head+19 and a second one at
+    # head+21. ISIS bumps both when it adds an instance - measured 16,1 -> 17,2 -> 18,3 as three
+    # units of one device were placed. The directory entry's id comes from the first of the two.
     new_id = u16(d, head + 19)
     n = len(rec)
 
@@ -146,10 +171,14 @@ def append(base, record, ref=None, out=None, ref_field_len=2, entry_tail=None):
         count = d[count_off]
         d[count_off] = count + 1
         tail = b"\x00" * 5 if entry_tail is None else entry_tail
-        entry = (struct.pack(">HHH", new_id, count + 1, 0) + b"\x00"
+        # seq is the part-entry number, not the raw entry count: 1, 2, 3, 4 as U1, U2, U3:A, U3:B
+        # were placed, with the graphics entries (P2C...) left at zero.
+        seq = 1 + sum(1 for e in entry_seqs(d, count_off0) if e)
+        entry = (struct.pack(">HHH", new_id, seq, 0) + b"\x00"
                  + bytes([len(ref)]) + ref.encode() + tail)
         d[anchor:anchor] = entry
         struct.pack_into("<H", d, head + 19, new_id + 1)
+        struct.pack_into("<H", d, head + 21, u16(d, head + 21) + 1)
 
     if out:
         open(out, "wb").write(bytes(d))
