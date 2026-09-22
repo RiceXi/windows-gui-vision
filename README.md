@@ -61,6 +61,7 @@ Copy the folder to `%USERPROFILE%\.codex\skills\windows-gui-vision`, or point
 | `references/proteus.md` | Proteus ISIS/ARES specifics, measured on a real install |
 | `references/dsn-format.md`, `references/dsn-generate.md` | editing Proteus `.DSN` files directly |
 | `references/dsn-append.md` | adding a component to a design from a script, verified, and what is still missing |
+| `references/dsn-build-circuit.md` | the workflow those pieces add up to: a part list and a netlist into a design Isis opens |
 | `references/dsn-templates.md` | lifting part records out of existing designs into a json library |
 | `references/dsn-wires.md` | adding a wire by script: the tail block, the link fields, and the verified recipe |
 | `scripts/` | 29 helpers: capture, OCR, vision, pixels, calibration, layout, input, placement, probing, self-checks, `.DSN` reading, appending, wiring, pin lookup and load checks |
