@@ -76,15 +76,11 @@ shell loops. `SKILL.md` and the reference files are what an agent reads; you can
   spaced list rows, but naming which button is which is still a one-time manual pass.
 - Vision accuracy. It is fine at "what is this" and unreliable at coordinates, small text and
   anything that sounds like an inventory. The docs say which questions to avoid.
-- Locating two link fields per generated wire. Components and wires can both be written by
-  script now, but a new wire needs two 2-byte fields elsewhere in the design pointed at it, and
-  their meaning is not pinned down yet, so they have to be found by measuring one hand-drawn
-  wire first. Everything else about a generated wire is automatic - see
-  `references/dsn-wires.md`.
-- Creating a part from a script. An appended part loads and keeps its reference designator, but
-  no symbol is drawn and it has no pins, so it cannot be wired into anything - including when
-  the record comes from the same design. `references/dsn-append.md` has the recipe and the
-  three measurements that show exactly where it stops, and the ink subtraction that catches it.
+- The geometry of a part you have just placed. Parts and wires can both be written by script now:
+  adding an instance to a design that already embeds the device produces a file byte-identical
+  to ISIS's own, and a wire can be written between coordinates, and a design built that way opens
+  in ISIS. What is still measured rather than computed is where a freshly placed part's pins are,
+  which is what a wire has to end on. `references/proteus.md` has both halves and the numbers.
 
 ## License
 

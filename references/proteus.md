@@ -431,6 +431,30 @@ drawing one wire by hand in a design that already has the new parts, which works
 wire starts and ends on existing connection points - the sample design's own pins are good for
 that.
 
+### Wires, second design: done, and the two halves together
+
+That ground truth came out as expected. In `BC_pick5.DSN`, drawing a wire between the sample
+design's own pins inserts 82 bytes at the object-area end and touches: the object-area end field,
+the directory's offset, **the two link fields at 14487 and 14686** - exactly what
+`dsn_add_wire.py --find-links` reports for that design - and four single-byte counters inside the
+component records.
+
+Writing the same route with the script, with those two link offsets, produced a file that ISIS
+loads and that differs from ISIS's own by 8 bytes: four of those single-byte counters, the entry
+count, the end-of-file flag, and the two-byte stamp. Nothing structural. The first attempt at
+this had used the link offsets from the design the writer was verified in, which is why it
+crashed - those offsets are per design, and `--find-links` is how to get them.
+
+Then the two halves together: starting from `BC_pick5.DSN`, `dsn_add_instance.py` added a sixth
+instance (`U4:B`) and `dsn_add_wire.py` wrote a wire, giving 6 instances, 9 wires, 22121 bytes -
+and ISIS opened it (`BZ_endtoend.DSN`). So a circuit can be assembled from the file: instances of
+any device the design already embeds, plus wires between coordinates you know.
+
+What remains outside that loop is geometric rather than structural: the coordinates a wire has to
+end on. For a part the design already had, they come from the wires that are already there; for a
+part the script just placed, they have to be measured once per device - a magnified crop reads
+the pin stubs well enough - or taken from the device's symbol.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
