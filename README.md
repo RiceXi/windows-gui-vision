@@ -56,12 +56,14 @@ Copy the folder to `%USERPROFILE%\.codex\skills\windows-gui-vision`, or point
 | `references/pixels.md` | the measurement scripts and when to reach for each |
 | `references/calibration.md` | logical pixels, scale factors, `calibrate.py`, `layout.py` |
 | `references/interaction.md` | clicking, typing, IME trouble, modal dialogs, canvas placement |
+| `references/coords.md` | the pointer readout, and turning a design coordinate into a screen pixel |
 | `references/docx-report.md` | turning captures into figures inside a Word document |
 | `references/proteus.md` | Proteus ISIS/ARES specifics, measured on a real install |
 | `references/dsn-format.md`, `references/dsn-generate.md` | editing Proteus `.DSN` files directly |
 | `references/dsn-append.md` | adding a component to a design from a script, verified, and what is still missing |
 | `references/dsn-templates.md` | lifting part records out of existing designs into a json library |
-| `scripts/` | 23 helpers: capture, OCR, vision, pixels, calibration, layout, self-checks, `.DSN` reading, appending and load checks |
+| `references/dsn-wires.md` | the wire record byte for byte, and the chain that still has to be decoded |
+| `scripts/` | 24 helpers: capture, OCR, vision, pixels, calibration, layout, input, self-checks, `.DSN` reading, appending and load checks |
 
 Everything under `scripts/` is command line and prints plain text or json, so it composes in
 shell loops. `SKILL.md` and the reference files are what an agent reads; you can read them too.

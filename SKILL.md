@@ -108,11 +108,13 @@ json and scratch scripts belong in a sibling working directory.
 | [pixels.md](references/pixels.md) | clusters, colour search, ASCII region dumps, edge checks, diffs, crops |
 | [calibration.md](references/calibration.md) | logical vs screenshot space, calibrate.py, layout.py, labelling widgets |
 | [interaction.md](references/interaction.md) | clicking, typing, IMEs, modal dialogs, canvas placement |
+| [coords.md](references/coords.md) | turning a design coordinate into a screen pixel, via the application's own readout |
 | [docx-report.md](references/docx-report.md) | getting captures into a Word deliverable and proving they are right |
 | [proteus.md](references/proteus.md) | Proteus ISIS/ARES: modes, object lists, bundled samples, its own traps |
 | [dsn-format.md](references/dsn-format.md) | Proteus `.DSN` layout, and which byte edits survive a load |
 | [dsn-generate.md](references/dsn-generate.md) | what an edit does to a `.DSN`, and the version of it that failed |
 | [dsn-append.md](references/dsn-append.md) | adding a component to a `.DSN` from a script, verified, and what is still missing |
+| [dsn-wires.md](references/dsn-wires.md) | the wire record byte for byte, and the chain that still has to be decoded |
 | [dsn-templates.md](references/dsn-templates.md) | lifting part records out of existing designs into a json library |
 
 `scripts/dsn_templates.py` builds that library and `scripts/dsn_add_component.py` is the
