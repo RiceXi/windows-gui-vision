@@ -117,6 +117,7 @@ json and scratch scripts belong in a sibling working directory.
 | [dsn-wires.md](references/dsn-wires.md) | adding a wire by script: the tail block, the link fields, and the verified recipe |
 | [dsn-wire-slots.md](references/dsn-wire-slots.md) | **the current wire rule**: splice point, the per-pin connection slots, and the byte check behind them |
 | [dsn-wire-load-test.md](references/dsn-wire-load-test.md) | **which written wires the loader accepts**: the shape sequence that loads, and the positions that crash |
+| [dsn-draw-wires.md](references/dsn-draw-wires.md) | **the wiring route that works**: draw in the application from a coordinate list, and the four details it needs |
 | [dsn-writer-plan.md](references/dsn-writer-plan.md) | what of the writer is done, what is left, smallest first |
 | [dsn-part-group.md](references/dsn-part-group.md) | a part's record and the wires it owns, measured section by section |
 | [dsn-hand-wire.md](references/dsn-hand-wire.md), [dsn-connection-list.md](references/dsn-connection-list.md), [dsn-tap-junction.md](references/dsn-tap-junction.md) | the hand-drawn ground truths these rules came from |
@@ -145,9 +146,10 @@ route is trustworthy for instances (`dsn_add_instance.py`) and not yet for wires
 be drawn in the application for their geometry to be real. `scripts/dsn_rec_diff.py` compares two
 designs part by part, which is how the `.DSN` layout was read.
 
-Two pieces of the application side now work from a script: `scripts/proteus_dismiss_notice.ps1`
-presses OK on the launch notice by message, so the main window stops being disabled and clicks
-reach it; `_re/scratch/isis_save_roundtrip.ps1` uses that to open a design, save it and close it.
-The acceptance test for anything generated is that round trip followed by counting instances in
-the saved file - a design can load, show its name in the title, and still come back with objects
-missing.
+The application side works from a script too: `scripts/proteus_dismiss_notice.ps1` presses OK on
+the launch notice by message, so the main window stops being disabled and clicks reach it;
+`_re/scratch/isis_save_roundtrip.ps1` opens a design, saves it and closes it; and
+`scripts/dsn_draw_wires.ps1` draws a list of wires on the canvas, which is how wires get into a
+design at all - see [dsn-draw-wires.md](references/dsn-draw-wires.md). The acceptance test for
+anything generated is a save round trip followed by counting instances and wires in the saved file
+- a design can load, show its name in the title, and still come back with objects missing.
