@@ -159,12 +159,51 @@ def run_start(d, head, end, tails):
     return p
 
 
-def add_wire(base, points, mode="end", out=None):
+def part_record_end(d, head, tail, ref):
+    """Offset just past the record of an instance, e.g. `U3:C`.
+
+    A wire whose two ends are pins of the *same* part hangs in that part's group: Isis puts the
+    new record immediately after the part's own record and pushes any wires already there further
+    on, so the newest wire sits first. Measured against a hand-drawn wire, this is where the wire
+    goes; nothing else in the part's record changes for this case.
+    """
+    m = re.search(rb"\xff\x04" + ref.encode("latin1"), d[head:tail])
+    if not m:
+        raise SystemExit("no record for %s in this design" % ref)
+    start = head + m.start()
+    nxt = re.search(rb"\xff\x04U\d:[A-D]", d[start + 5:tail])
+    return start + 5 + nxt.start() if nxt else tail
+
+
+def add_wire(base, points, mode="end", out=None, after_part=None):
     d = bytearray(base)
     head = d.find(MARKER)
     tail = d.find(MARKER, head + 1)
     if min(head, tail) < 0:
         raise SystemExit("not an ISIS design file")
+    if after_part:
+        # a pin-to-pin wire belonging to one part: insert at the end of that part's record
+        at = part_record_end(d, head, tail, after_part)
+        tails = tail_offsets(d, head, tail)
+        rec = bytearray(PREFIX + b"\x02\x7fWIRE\x00\x00\x00")
+        rec += struct.pack("<H", len(points))
+        for x, y in points:
+            rec += struct.pack("<ii", int(round(x * UNITS)), int(round(y * UNITS)))
+        old = bytes(d[at:at + 15])
+        rec += old
+        delta = len(rec)
+        moved = relocate(d, tails, at, delta)
+        d[at:at + 15] = DEFAULT_TAIL + bytes(rec)
+        struct.pack_into("<I", d, head - 4, u32(d, head - 4) + delta)
+        marker = d.find(MARKER, head + 1)
+        for off in range(tail, len(d) - 4):
+            if u32(d, off) == tail:
+                struct.pack_into("<I", d, off, marker)
+                break
+        if out:
+            open(out, "wb").write(bytes(d))
+        return dict(data=bytes(d), inserted_at=at, inserted=delta, moved=moved, filled=[],
+                    tails=len(tails))
     ws = wires(d, head, tail)
     if not ws:
         raise SystemExit("no wire in this design; there is nothing to append beside")
@@ -234,11 +273,15 @@ def main():
                     help="x,y in inches, in order; repeat for each point")
     ap.add_argument("--mode", default="end", choices=("end", "head", "end0"),
                     help="end and head are the two shapes Isis writes; end0 is an older layout")
+    ap.add_argument("--after-part", default=None,
+                    help="reference like U3:C: the wire belongs to that part, so it goes at the "
+                         "end of the part's own record instead of into the wire section")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
     pts = [tuple(float(v) for v in p.split(",")) for p in args.points]
-    info = add_wire(open(args.base, "rb").read(), pts, mode=args.mode, out=args.out)
+    info = add_wire(open(args.base, "rb").read(), pts, mode=args.mode, out=args.out,
+                    after_part=args.after_part)
     print("wrote %s: %d bytes (+%d), %d points, spliced at %d"
           % (args.out, len(info["data"]), info["inserted"], len(pts), info["inserted_at"]))
     print("  tail blocks known: %d" % info["tails"])
