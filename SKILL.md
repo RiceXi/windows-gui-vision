@@ -137,10 +137,16 @@ order - instances first, then wires - and the write-up at
 [dsn-build-circuit.md](references/dsn-build-circuit.md) says what has to be true of the base
 design before it can.
 
-For the wire half, `scripts/dsn_add_wire.py --pin REF:INDEX` (repeat it for the other end) writes
-the wire and the connection slot on every pin it lands on. Write wires into the wire section, in
-the shape sequence `end`, `head`, `end0`, then `end` for each wire after that - that is the
-sequence the loader accepts; `references/dsn-wire-load-test.md` has the measurements, including
-the group shape that crashes. `scripts/dsn_rec_diff.py` compares two designs part by part, which
-is how the layout was read. Building a net with three or more pins does not need a tap: route it
-as segments that share an endpoint.
+For the wire half, read [dsn-wire-load-test.md](references/dsn-wire-load-test.md) before trying
+anything: a wire written into the file loads, but the application resolves a wire's ends through
+its own ledger, so on save it puts *other* coordinates there. The measured state is that the file
+route is trustworthy for instances (`dsn_add_instance.py`) and not yet for wires - wires have to
+be drawn in the application for their geometry to be real. `scripts/dsn_rec_diff.py` compares two
+designs part by part, which is how the `.DSN` layout was read.
+
+Two pieces of the application side now work from a script: `scripts/proteus_dismiss_notice.ps1`
+presses OK on the launch notice by message, so the main window stops being disabled and clicks
+reach it; `_re/scratch/isis_save_roundtrip.ps1` uses that to open a design, save it and close it.
+The acceptance test for anything generated is that round trip followed by counting instances in
+the saved file - a design can load, show its name in the title, and still come back with objects
+missing.

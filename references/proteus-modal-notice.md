@@ -109,3 +109,32 @@ The GUI half of the pipeline cannot be driven from here:
 One person at the mouse clears it: open Isis, dismiss the notice (it appears on every launch), and
 either draw one wire by hand as a reference and save, or leave the session open. Either one turns
 the GUI back into an instrument.
+# The notice Isis shows on launch, and how to get rid of it
+
+**Solved.** The notice is a modal dialog - `#32770`, about 294x136, titled like the main window -
+owned by the main window, and the main window stays disabled until it is answered. It can be
+answered without a person:
+
+```
+powershell -File scripts/proteus_dismiss_notice.ps1 -ProcId <pid>
+```
+
+The trick is to press its OK button **by message**, not by pointer. The button is a real child
+control, so `PostMessage(dialog, WM_COMMAND, MAKELONG(controlId, 0), buttonHwnd)` - `0x0111` with
+the control's own id and handle - closes the dialog and leaves the main window enabled. Measured:
+after the call, zero small windows remain and `IsWindowEnabled(main)` is true.
+
+Two things wasted a lot of time before that, and both are worth knowing:
+
+* **a click at the button's screen coordinates can land in another application.** The dialog is
+  often *behind* something else; in the session this was measured in, `WindowFromPoint` at the OK
+  button's centre returned a Chrome window, and every synthetic click went there;
+* `WM_CLOSE` (which `proteus_input.ps1 -CloseNotices` uses) makes the dialog disappear from the
+  window list while the main window stays disabled - worse than doing nothing, because the state
+  now looks clean.
+
+## What still needs a person
+
+Nothing, for opening and saving a design: `_re/scratch/isis_save_roundtrip.ps1` launches Isis on a
+file, dismisses the notice, presses Ctrl+S and closes it again. The pieces are all in
+[dsn-wire-load-test.md](dsn-wire-load-test.md).

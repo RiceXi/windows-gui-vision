@@ -62,3 +62,40 @@ lands on.
 
 Keep a pristine copy of what the script wrote: after the round trip the file is no longer the
 thing you can compare against.
+
+## The round trip is the only acceptance test (and the news is not good)
+
+The title check above (`design_loadcheck.ps1`) is not enough on its own, and this is the measurement
+that says so. The same files, opened, saved from inside the application, closed, and then counted:
+
+| file | bytes | after the round trip | instances | wires |
+| --- | --- | --- | --- | --- |
+| `BC_pick5.DSN` (the base) | 21588 | 21588 | 5 | 6 |
+| `y1.DSN`, one wire `end` | 21646 | 21646 | 5 | 7 |
+| `y2.DSN`, two wires `end head` | 21704 | 21704 | 5 | 8 |
+| `z_end0.DSN`, three wires `end head end0` | 21762 | **16070** | **0** | 7 |
+| the six wire build | 21952 | **16070** | **0** | 7 |
+| `y0`/`y3`/`z_end` (third wire as `end` or `head`) | 21762 | unchanged, title bare | - | - |
+
+So `end0` - and any build that used it - produced a file the application *opens* and then writes
+back with **every instance missing**: a partial read that looks like a load. The three-wire shapes
+that do not load at all are the honest failure. Counting instances in the saved file is how these
+were told apart, and it is the check to use from now on:
+
+```
+pwsh -File _re/scratch/roundtrip_many.ps1 -ListFile list.txt -OutDir _re/scratch/rt
+python _re/scratch/count_objs.py _re/scratch/rt/*.DSN
+```
+
+## And the wire that survives is not where it was written
+
+The one wire file is the cleanest evidence. Before the round trip its wire reads
+`(2.5, 1.0) (2.8, 1.0) (2.8, 0.0)` - the record this writer spliced in. After the round trip, the
+same record reads `(0.7, 0.8) (2.8, 1.0) (0.7, -0.3)`: the middle point is mine, and the two ends
+have been replaced by the endpoints of *other* wires in the design. Isis resolves a wire's ends
+through its own ledger of tail blocks, so a spliced record that looks right in a hex dump is not a
+wire at that position as far as the application is concerned.
+
+That is the reason the file route can be trusted for instances and not for wires: what it writes
+loads, and sometimes survives, but the geometry it asked for is not what the design ends up
+holding. Anything that needs a wire *here* has to be drawn in the application.
