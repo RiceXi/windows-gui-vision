@@ -60,6 +60,27 @@ and after saving from inside ISIS the file still held all seven instances (`U3:A
 and nine wires. That is the whole path: a description of a circuit in, a design ISIS accepts and
 keeps out.
 
+## Wiring by pin name
+
+Raw coordinates are tedious to write and easy to get wrong, so the builder can also work from pin
+names, using `scripts/pin_tables.json`:
+
+```json
+{"parts": [{"device": "74LS00", "label": "g1", "at": [-2.0, 2.0]},
+           {"device": "74LS00", "label": "g2", "at": [-0.5, 2.0]}],
+ "nets":  [{"name": "n1", "from": ["g1", "Y"], "to": ["g2", "A"]}]}
+```
+
+Each pin is resolved to the instance's anchor plus the offset the table holds for that device, and
+the net is routed as an orthogonal path bending on the 0.1 inch grid. Run against the
+five-instance design that produced 22557 bytes, with `g1.Y` at (-1.310, 1.925) and `g2.A` at
+(-0.750, 2.025), and ISIS opened it.
+
+The table has one entry so far, 74LS00, measured the way step 2 describes. Adding a device means
+measuring it once and adding six numbers; after that, circuits can be written in terms of gates
+and pins rather than coordinates. The routing is a single midpoint bend, which is fine for the
+stub in the example and not a replacement for a real router.
+
 ## What is not solved
 
 Reading a device's pin geometry out of its definition block. The block carries the symbol outline
