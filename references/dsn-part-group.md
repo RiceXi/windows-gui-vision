@@ -54,3 +54,30 @@ field boundary obvious at a glance. The next measurement is to read the same reg
 hand-drawn file and see what the wire's body block actually contains there, which will say whether
 the record is really being spliced mid-string or whether the earlier position estimate was off by
 the same 83 bytes for a reason.
+
+## Reading the same region after all three edits (the answer)
+
+The three-wire file (21949 bytes) is coherent, and it shows what the earlier one-wire comparison
+was really looking at:
+
+```
+19344  PROPERTIES\0\0\0\0\0 35 00 00 00 {MODFILE=74NAND2.MDF}\n{PACKAGE=DIL14}\n{ITFMOD=TTLLS}\n
+19410  03 00 06 "74LS00" 80 f8 64 ff 30 dd c5 ff | 00 00 00 00 12 00 03 00 ... [d2 4f] [ff 4b] [14 50]
+19455  00 1d ... 01   the default tail
+19470  ff ff ff 00 ff ff ff 00 02 7f "WIRE" ...   the ten point wire
+```
+
+The properties text is **complete** here, and immediately after it comes the connection list -
+`12 00 03 00` then three offsets, all of which name wires in this group: 0x4fd2 = 20434, 0x4bff =
+19455, 0x5014 = 20500. So:
+
+* the record ends where its properties end, and the connection list follows inside the same
+  record - the 83 bytes the earlier dump was puzzling over are the *text itself*, not padding;
+* the one-wire comparison that matched byte for byte was against an intermediate save, where the
+  part's record had not yet been rebuilt with its list. The splice position happened to land
+  right, which is why the reproduction matched, but the *final* saved form is the layout above.
+
+The offsets in the list name the group's wires; whether each entry is the wire's tail block or its
+body still has to be pinned down by matching the three values against the walk's own body and tail
+offsets (20434 is a tail, 20500 is the body of the wire at 20457, 19455 is the tail of the wire at
+19478 - one of those readings is wrong, and the next pass is to decide which).
