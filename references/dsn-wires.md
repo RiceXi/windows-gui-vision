@@ -106,6 +106,41 @@ capture the canvas, capture it again, subtract - `scripts/proteus_probe_pins.ps1
 clicking and this file's `diff2.py`-style check is the cheaper filter. What it costs is time:
 about 1.2 s per candidate, and the pins are sparse.
 
+One confound is worth ruling out, because it would have made every earlier probe meaningless:
+in Component mode, if a device is still armed in the selector, a click on the canvas *places
+another one* instead of starting a wire, so a probe run there measures nothing. Repeating the
+scan in Selection mode (选择模式), where a click cannot place anything, gives the same answer -
+22 candidate points down both sides of the placed part, no wire, file unchanged. So the
+placement really does produce a part with no usable connection points, and the parts the design
+already had still answer. That is the narrow, confirmed blocker.
+
+The open question is what a *hand*-placed part has that these two do not: the design this base
+was cut down from was built by clicking in Isis, and its parts wire up fine. Comparing the
+record of a hand-placed part against a script-placed one, byte for byte, is the cheapest way to
+find the difference and it needs no GUI session.
+
+#### The naming mismatch is the lead
+
+Listing the `ff <len> <name>` records inside each instance, the design carries two families of
+part, and they do not agree on the device:
+
+| parts | device identifier the record names |
+| --- | --- |
+| the two the design was built around (U1, U2) | `NAND2`, and the symbol record `NAND_2` |
+| everything added since, by script or by injected placement (U3:A, U3:B, ... U4:B) | `74LS00` |
+
+The symbol and unit records the design actually embeds are the `NAND2` / `NAND_2` ones (and
+their `U1(Q)` / `U2(Q)` drawings). A record that names `74LS00` is pointing at an identifier the
+design does not define, which is the second half of the warning already in
+[dsn-append.md](dsn-append.md): *a Labcenter sample carries definitions under old device
+identifiers and placing a part from its device list produces a stand-in with no pins.* A part
+that draws but has no connection points is exactly what that predicts.
+
+So the concrete next step is to make the parts the writer adds name the identifier the design's
+own symbol records use - `NAND_2`, not `74LS00` - and then re-run the pin probe. Every
+generated part in this design currently names `74LS00`, so none of them can be expected to be
+wireable, whichever route put them there.
+
 The most useful thing the acceptance test taught is why generated designs degrade. Measured on
 the five-instance base, with `dsn_savecheck.ps1 -Modify` (open, drop one more part in so Isis
 actually writes, save, compare the object list):
