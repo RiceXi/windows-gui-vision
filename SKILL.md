@@ -114,7 +114,7 @@ json and scratch scripts belong in a sibling working directory.
 | [dsn-format.md](references/dsn-format.md) | Proteus `.DSN` layout, and which byte edits survive a load |
 | [dsn-generate.md](references/dsn-generate.md) | what an edit does to a `.DSN`, and the version of it that failed |
 | [dsn-append.md](references/dsn-append.md) | adding a component to a `.DSN` from a script, verified, and what is still missing |
-| [dsn-wires.md](references/dsn-wires.md) | the wire record byte for byte, and the chain that still has to be decoded |
+| [dsn-wires.md](references/dsn-wires.md) | adding a wire by script: the tail block, the link fields, and the verified recipe |
 | [dsn-templates.md](references/dsn-templates.md) | lifting part records out of existing designs into a json library |
 
 `scripts/dsn_templates.py` builds that library and `scripts/dsn_add_component.py` is the

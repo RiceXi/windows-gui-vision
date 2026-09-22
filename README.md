@@ -62,8 +62,8 @@ Copy the folder to `%USERPROFILE%\.codex\skills\windows-gui-vision`, or point
 | `references/dsn-format.md`, `references/dsn-generate.md` | editing Proteus `.DSN` files directly |
 | `references/dsn-append.md` | adding a component to a design from a script, verified, and what is still missing |
 | `references/dsn-templates.md` | lifting part records out of existing designs into a json library |
-| `references/dsn-wires.md` | the wire record byte for byte, and the chain that still has to be decoded |
-| `scripts/` | 24 helpers: capture, OCR, vision, pixels, calibration, layout, input, self-checks, `.DSN` reading, appending and load checks |
+| `references/dsn-wires.md` | adding a wire by script: the tail block, the link fields, and the verified recipe |
+| `scripts/` | 25 helpers: capture, OCR, vision, pixels, calibration, layout, input, self-checks, `.DSN` reading, appending, wiring and load checks |
 
 Everything under `scripts/` is command line and prints plain text or json, so it composes in
 shell loops. `SKILL.md` and the reference files are what an agent reads; you can read them too.
@@ -76,12 +76,11 @@ shell loops. `SKILL.md` and the reference files are what an agent reads; you can
   spaced list rows, but naming which button is which is still a one-time manual pass.
 - Vision accuracy. It is fine at "what is this" and unreliable at coordinates, small text and
   anything that sounds like an inventory. The docs say which questions to avoid.
-- Wires in a generated schematic. Adding a component to a `.DSN` from a script works now, with
-  two conditions: the design has to already contain that part type, and the record must come
-  from a part with nothing wired or scripted to it. Adding a wire that way does not work yet,
-  so a generated circuit still gets its connections by clicking from pin to pin in ISIS. See
-  `references/dsn-append.md` for the recipe, the two conditions and the wire format as far as
-  it has been decoded.
+- Locating two link fields per generated wire. Components and wires can both be written by
+  script now, but a new wire needs two 2-byte fields elsewhere in the design pointed at it, and
+  their meaning is not pinned down yet, so they have to be found by measuring one hand-drawn
+  wire first. Everything else about a generated wire is automatic - see
+  `references/dsn-wires.md`.
 
 ## License
 

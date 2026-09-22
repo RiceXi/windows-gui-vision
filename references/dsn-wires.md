@@ -1,7 +1,8 @@
 # Wires in a .DSN
 
-Status, September 2026, ISIS 7.08 SP2: the record layout is decoded, adding one by hand is not
-working yet, and adding one through the GUI definitely is.
+Status, September 2026, ISIS 7.08 SP2: adding a wire by script now works and the file it
+produces loads. `scripts/dsn_add_wire.py` does it. One part of it - locating the two link
+fields - still has to be told where they are; everything else is automatic.
 
 ## What a wire record looks like
 
@@ -28,14 +29,43 @@ with no edits:
   six points, so measure the count rather than assuming two;
 * the wire goes into the *wire section* of the object area, before the graphics and the panel,
   not at the end of the object area;
-* two earlier wire records change: a 2-byte field in each becomes the file offset of the new
-  wire (`0x3690` = 13968 in the test). Something in the file is a chain, and appending without
-  repairing it is what makes ISIS crash on load.
+* the last wire's 15-byte tail block moves to the new wire, and the old wire gets the default
+  tail block `00 1D 00 00 00 00 C0 9E 00 00 00 40 00 00 01`;
+* two 2-byte link fields become the file offset of the new wire group (`0x3690` = 13968 here).
+  Each sits at the end of a run of 4-byte object offsets, one inside a component record and
+  one inside a wire record.
 
-That last point is the whole reason six attempts at appending a wire failed - at the end of the
-object area, in the middle of the wire section, duplicated, with the prefix, without it, and
-with the object id counter bumped. All of them crashed with `access violation in module
-VGDVCDLL`. The chain is the missing piece.
+The tail block is the part that is easy to get wrong: it is not a constant, it belongs to
+whichever wire is last, and it has to travel. Six earlier attempts at appending a wire - at the
+end of the object area, inside the wire section, duplicated, with the prefix, without it, and
+with the object id counter bumped - all crashed with `access violation in module VGDVCDLL`.
+
+## The recipe, verified
+
+1. find the last wire object, and its 15-byte tail block;
+2. replace that block with the default one and insert at the same offset:
+   `FF FF FF 00 FF FF FF 00` + `02 7F "WIRE" 00 00 00` + point count + points + the old block;
+3. write the insertion offset into the two link fields;
+4. add the length inserted to the object-area end field at head-4.
+
+Done that way, the result is byte-for-byte what ISIS itself writes, except for a volatile stamp
+and five single-byte fields that it also touches and that do not affect loading. Both halves
+were tested separately: with the link fields written (F) ISIS opens the design; with everything
+except them (G) it crashes. `scripts/dsn_add_wire.py` reproduces the working version exactly.
+
+## The one thing still manual
+
+The two link fields have to be pointed at with `--link <offset>`. Their meaning is not pinned
+down yet - they sit at the end of offset lists inside the objects involved, and the value is the
+new wire's offset - so the way to find them for a different design is to repeat the measurement:
+
+1. save the design once with no changes, save a copy with one wire drawn by hand;
+2. diff the two files;
+3. the fields that became the insertion offset are the ones to pass in.
+
+The hypothesis worth testing next is that they belong to the two objects whose pins the wire
+connects, in which case they could be located from the wire's endpoints and the whole thing
+becomes automatic.
 
 ## The comparison that produced this
 
@@ -55,11 +85,8 @@ mapping that makes the clicks land on the right pins.
 
 ## What this means today
 
-Wiring through the GUI is no longer guesswork: the mapping is measured, the notice window is
-out of the way, and the click path is verified by diffing the saved design. A circuit can
-therefore be built end to end now - parts in bulk by the file route, wires by clicking between
-pins.
-
-The file route for wires needs the chain decoded first. The pair `A_base.DSN` / `D_wire.DSN`
-in the working directory is the evidence to start from: the new wire's bytes are there, and so
-are the two fields that changed to point at it.
+Both halves of a schematic can now be produced by script: components with
+[dsn-append.md](dsn-append.md), wires with `dsn_add_wire.py`. Wiring through the GUI also works
+and is no longer guesswork - the pointer-to-design mapping is measured
+([coords.md](coords.md)), the notice window that swallowed clicks is closed first, and the
+clicks are verified by diffing the saved design against a saved baseline.
