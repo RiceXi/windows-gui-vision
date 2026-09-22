@@ -1,38 +1,43 @@
-# The pin map Isis writes for a new part
+# The pin map a new part carries
 
-Measured by comparing the base design with the same design plus one part placed by the
-application itself (`dsn_diff.py`, and the 451 byte difference the acceptance test reports).
+Measured by diffing the base design against the same design plus one part placed by the
+application (`dsn_diff.py`; the acceptance test reports the same edit as +451 bytes).
 
-What a placement adds is a 420 byte instance record and then a 31 byte directory entry carrying
-the part's pin map:
+## What a placement adds
+
+A 420 byte instance record and then a 31 byte directory entry holding the part's pin map:
 
 ```
 00 00 00 00 15 00 08 00 00 00 | 04 "U4:B" | 06 00 | 03 00 | 01 "A" 01 "4" 01 "B" 01 "5" 01 "Y" 01 "6"
-                               reference   ?       3 pins  (name, pin number) pairs
+                               reference   ?       count   (pin name, physical pin number) pairs
 ```
 
-The pin numbers are the physical pins of that *unit*, not of unit A: A/4, B/5, Y/6 is unit B of a
-DIL14 74LS00, while unit A is A/1, B/2, Y/3.
+The numbers are the physical pins of **that unit**, not of unit A. For a DIL14 74LS00:
+unit A is A/1 B/2 Y/3, unit B is A/4 B/5 Y/6, unit C is A/10 B/9 Y/8, unit D is A/13 B/12 Y/11 -
+which is what the device's own PINOUT block holds, one number per unit in unit order.
 
-## The writer has this wrong
+## The writer already gets this right (correction)
 
-`dsn_add_instance.py` does write a pin-map entry, so the format is understood. It writes the **unit
-A pin numbers on every unit**: the appended part in the instances-only build carries
+An earlier version of this page claimed `dsn_add_instance.py` reused unit A's numbers on every
+unit. That was a misread of a hex dump, and it is wrong. Reading the entries out of a fresh build
+shows the tool writing exactly the PINOUT's per-unit numbers:
 
-```
-04 "U4:B" ... 01 "A" 01 "1" 01 "B" 01 "2" 01 "Y" 01 "3"
-```
+| reference | entry says |
+| --- | --- |
+| U3:A | A/1, B/2, Y/3 |
+| U3:B | A/4, B/5, Y/6 |
+| U3:C | A/10, B/9, Y/8 |
+| U3:D | A/13, B/12, Y/11 |
 
-where the placed one carries 4, 5, 6. That is a real defect for anything that reads the map -
-netlists especially - and it is a local fix: take the pin numbers from the unit's own PINOUT text
-rather than reusing the first unit's.
+`pinout()` parses the block into `[1, 4, 10, 13]` and the entry builder indexes it by the unit it
+just chose, so the map is right by construction.
 
-## Two facts worth keeping from the same comparison
+## What the comparison does say
 
-* the base design's own parts have **no** pin-map entry at all, and they are exactly the parts that
-  wire up. So the entry is something Isis writes when it places a part; it is not what makes a part
-  wireable.
+* the base design's own parts carry **no** pin-map entry at all, and they are exactly the parts
+  that wire up - so this entry is something Isis writes when it places a part, not what makes a
+  part wireable;
 * apart from that entry and the instance record itself, an appended part and a placed part are the
-  same bytes in the same shapes. That is an argument that the file route is not what makes added
-  parts unwireable - the gesture that cannot draw is the more likely culprit, and every probe
-  result that suggested otherwise was taken with that gesture.
+  same bytes in the same shapes, and the entries agree field for field. That is an argument that
+  the file route is not what makes added parts unwireable, and that the gesture which cannot draw
+  is the thing to fix first.
