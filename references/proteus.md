@@ -326,6 +326,29 @@ existing instance's record, name it as the next unit, and build its entry from t
 PINOUT block. What has not been sampled yet is the first placement of a *new* package, which
 needs a fifth unit and therefore a fifth placement.
 
+### The fifth placement, and what is still missing
+
+Two more placements settle the naming. The fourth is `U3:D`, and only the fifth opens a new
+package, `U4:A` - so a package is filled unit by unit first. Their entries:
+
+```
+U3:D  id 19  seq 6  tail 04 00 03 00 "A"->"13" "B"->"12" "Y"->"11"
+U4:A  id 20  seq 7  tail 05 00 03 00 "A"->"1"  "B"->"2"  "Y"->"3"
+```
+
+which pins down the last two rules: the tail's first field is the *global* unit counter - 5 for
+`U4:A`, not 1 - and the pin numbers follow the new unit, so `U4:A` goes back to 1, 2, 3.
+
+`scripts/dsn_add_instance.py` implements all of it: it finds the device's PINOUT, works out
+whether the next instance is the next unit or a new package, builds the record and the entry,
+and moves the two counters. Its output matches ISIS's on every field tested - name, id,
+sequence, unit counter, pin map, record length - and ISIS still rejects the file, because the
+entry does not land where ISIS puts it: over two placements ISIS inserts 65 bytes of entry
+where the script writes 59, and its insert sits about 240 bytes earlier in the file than the end
+of the entry list the parser finds. So there is a second structure near the directory that the
+new entries belong to, and finding it is the next concrete step. The script says as much at the
+top of the file.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
