@@ -1,5 +1,11 @@
 # The hand-drawn wire, and what it settles
 
+**Corrected since**: the splice position is not `~19373`. A wire attached to a part goes at the
+last byte of that part's 420 byte record - `next object marker - 1`, which is 19455 for U3:C in
+the five instance base, and the writer was one byte late until that was measured. The five fields
+at 16137, 16191, 16387, 16575 and 16839 are still recomputed by Isis and still not modelled; see
+[dsn-wire-slots.md](dsn-wire-slots.md).
+
 One wire drawn by hand in the application - between pin 8 (Y) and pin 10 (A) of U3:C, in the
 instances-only base - and saved. That is the ground truth this folder had been missing, and it
 answers two open questions at once.

@@ -159,32 +159,50 @@ def run_start(d, head, end, tails):
     return p
 
 
-def part_record_end(d, head, tail, ref):
-    """Offset just past the record of an instance, e.g. `U3:C`.
-
-    A wire whose two ends are pins of the *same* part hangs in that part's group: Isis puts the
-    new record immediately after the part's own record and pushes any wires already there further
-    on, so the newest wire sits first. Measured against a hand-drawn wire, this is where the wire
-    goes; nothing else in the part's record changes for this case.
-    """
+def part_span(d, head, tail, ref):
+    """Where an instance's record starts, and where a wire attached to it is spliced in."""
     m = re.search(rb"\xff\x04" + ref.encode("latin1"), d[head:tail])
     if not m:
         raise SystemExit("no record for %s in this design" % ref)
     start = head + m.start()
     nxt = re.search(rb"\xff\x04U\d:[A-D]", d[start + 5:tail])
-    return start + 5 + nxt.start() if nxt else tail
+    nxt = start + 5 + nxt.start() if nxt else tail
+    # Isis measures the record as 420 bytes when it lists instances, and a wire attached to the
+    # part is spliced in at the last of those bytes - one byte before the next instance's marker.
+    # Writing it a byte later (at the marker) produces a file the loader reads one object short.
+    return start, nxt - 1
 
 
-def add_wire(base, points, mode="end", out=None, after_part=None):
+def pin_slot(d, start, index):
+    """The slot an instance keeps for one of its own pins.
+
+    A part's record ends with four four byte slots at `start + 403 + 4i`, and the `i`-th pin in
+    the part's pin map owns slot `i` - the same order the directory entry lists the pins in. Slot
+    0 is left empty. Measured on the hand-drawn files: U3:C pin 10 (A, first) landed at +407,
+    pin 9 (B, second) at +411 and pin 8 (Y, third) at +415; U3:D pin 12 (the unit's second pin)
+    at +411; U4:A pin 3 (the unit's third pin) at +415.
+    """
+    return start + 403 + 4 * index
+
+
+def add_wire(base, points, mode="end", out=None, after_part=None, pin=None,
+             link_part=None, link_pin=None):
     d = bytearray(base)
     head = d.find(MARKER)
     tail = d.find(MARKER, head + 1)
     if min(head, tail) < 0:
         raise SystemExit("not an ISIS design file")
     if after_part:
-        # a pin-to-pin wire belonging to one part: insert at the end of that part's record
-        at = part_record_end(d, head, tail, after_part)
+        # a wire attached to a part's pin: it goes in that part's group, at the last byte of the
+        # part's own record, and the part's pin slot gains the new wire
+        start, at = part_span(d, head, tail, after_part)
         tails = tail_offsets(d, head, tail)
+        slots = []
+        if pin:
+            slots.append((after_part, pin, pin_slot(d, start, pin)))
+        if link_part and link_pin:
+            lstart, _ = part_span(d, head, tail, link_part)
+            slots.append((link_part, link_pin, pin_slot(d, lstart, link_pin)))
         rec = bytearray(PREFIX + b"\x02\x7fWIRE\x00\x00\x00")
         rec += struct.pack("<H", len(points))
         for x, y in points:
@@ -194,6 +212,18 @@ def add_wire(base, points, mode="end", out=None, after_part=None):
         delta = len(rec)
         moved = relocate(d, tails, at, delta)
         d[at:at + 15] = DEFAULT_TAIL + bytes(rec)
+        filled = []
+        for ref, idx, off in slots:
+            if off < at:
+                pass                      # the slot sits in front of the insert and did not move
+            else:
+                off += delta
+            if u32(d, off):
+                print("  warning: %s pin %s already has a wire (slot %d = %d); leaving it alone"
+                      % (ref, idx, u32(d, off), u32(d, off)))
+                continue
+            struct.pack_into("<I", d, off, at)
+            filled.append((ref, idx, off))
         struct.pack_into("<I", d, head - 4, u32(d, head - 4) + delta)
         marker = d.find(MARKER, head + 1)
         for off in range(tail, len(d) - 4):
@@ -202,7 +232,7 @@ def add_wire(base, points, mode="end", out=None, after_part=None):
                 break
         if out:
             open(out, "wb").write(bytes(d))
-        return dict(data=bytes(d), inserted_at=at, inserted=delta, moved=moved, filled=[],
+        return dict(data=bytes(d), inserted_at=at, inserted=delta, moved=moved, filled=filled,
                     tails=len(tails))
     ws = wires(d, head, tail)
     if not ws:
@@ -276,19 +306,26 @@ def main():
     ap.add_argument("--after-part", default=None,
                     help="reference like U3:C: the wire belongs to that part, so it goes at the "
                          "end of the part's own record instead of into the wire section")
+    ap.add_argument("--pin", type=int, default=None,
+                    help="which pin of --after-part the wire lands on, counted from 1 in the "
+                         "part's pin-map order; that pin's slot in the record gains the wire")
+    ap.add_argument("--link-part", default=None, help="the part at the wire's other end")
+    ap.add_argument("--link-pin", type=int, default=None, help="and its pin, same counting")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
     pts = [tuple(float(v) for v in p.split(",")) for p in args.points]
     info = add_wire(open(args.base, "rb").read(), pts, mode=args.mode, out=args.out,
-                    after_part=args.after_part)
+                    after_part=args.after_part, pin=args.pin, link_part=args.link_part,
+                    link_pin=args.link_pin)
     print("wrote %s: %d bytes (+%d), %d points, spliced at %d"
           % (args.out, len(info["data"]), info["inserted"], len(pts), info["inserted_at"]))
     print("  tail blocks known: %d" % info["tails"])
     for off, was, now in info["moved"]:
         print("  relocated u32 at %d: %d -> %d" % (off, was, now))
-    if info["filled"]:
-        print("  filled pointer slots: %s" % info["filled"])
+    for ref, idx, off in info["filled"]:
+        print("  %s pin %d: slot at %d names this wire's tail block at %d"
+              % (ref, idx, off, info["inserted_at"]))
     print("check it with scripts/design_loadcheck.ps1 - the loader refuses bad files silently")
     return 0
 

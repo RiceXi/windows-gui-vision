@@ -115,8 +115,16 @@ json and scratch scripts belong in a sibling working directory.
 | [dsn-generate.md](references/dsn-generate.md) | what an edit does to a `.DSN`, and the version of it that failed |
 | [dsn-append.md](references/dsn-append.md) | adding a component to a `.DSN` from a script, verified, and what is still missing |
 | [dsn-wires.md](references/dsn-wires.md) | adding a wire by script: the tail block, the link fields, and the verified recipe |
+| [dsn-wire-slots.md](references/dsn-wire-slots.md) | **the current wire rule**: splice point, the per-pin connection slots, and the byte check behind them |
+| [dsn-writer-plan.md](references/dsn-writer-plan.md) | what of the writer is done, what is left, smallest first |
+| [dsn-part-group.md](references/dsn-part-group.md) | a part's record and the wires it owns, measured section by section |
+| [dsn-hand-wire.md](references/dsn-hand-wire.md), [dsn-connection-list.md](references/dsn-connection-list.md), [dsn-tap-junction.md](references/dsn-tap-junction.md) | the hand-drawn ground truths these rules came from |
+| [dsn-pin-map.md](references/dsn-pin-map.md) | the pin map a placed part carries, and which unit gets which physical pins |
+| [dsn-embedded-definitions.md](references/dsn-embedded-definitions.md) | why a scripted part is a stand-in until the design is opened and saved once |
 | [dsn-build-circuit.md](references/dsn-build-circuit.md) | the whole workflow - definitions, instances, pin positions, wires, the check after each, and the end-to-end run |
 | [dsn-templates.md](references/dsn-templates.md) | lifting part records out of existing designs into a json library |
+| [proteus-modal-notice.md](references/proteus-modal-notice.md) | the launch dialog that disables the main window, and what does not dismiss it |
+| [proteus-view-drift.md](references/proteus-view-drift.md) | why the same design does not always come back at the same scroll position |
 
 `scripts/dsn_templates.py` builds that library and `scripts/dsn_add_component.py` is the
 original single-part edit. `scripts/dsn_append.py` is the one that produces designs ISIS
@@ -127,3 +135,9 @@ To build a circuit from a description, `scripts/dsn_build_circuit.py` runs the t
 order - instances first, then wires - and the write-up at
 [dsn-build-circuit.md](references/dsn-build-circuit.md) says what has to be true of the base
 design before it can.
+
+For the wire half, `scripts/dsn_add_wire.py --after-part <ref> --pin <n>` writes a wire the way
+Isis does, including the connection slot on each pin it lands on, and
+`scripts/dsn_rec_diff.py` compares two designs part by part - which is how the layout was read.
+Building a net with three or more pins does not need a tap: route it as segments that share an
+endpoint.

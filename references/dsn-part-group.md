@@ -1,5 +1,13 @@
 # A part's wires live in its own record group
 
+**Correction, and the short version of the rule** - the splice position and the connection entries
+are both settled now; see [dsn-wire-slots.md](dsn-wire-slots.md) for the corrected model. In
+brief: the wire goes at the last byte of the part's 420 byte record (one byte before the next
+marker, not at the marker), and the connection entries are **per pin**: slot `+407` is pin 1,
+`+411` pin 2, `+415` pin 3, each holding the tail block offset of the wire on that pin. The
+four-byte header before them (`12 00 03 00` on U3:C) is not a count and does not change. The
+sections below are the measurements that got there, including two readings that were wrong.
+
 Reading the same records out of the base, the one-wire file and the multi-wire file shows what
 attaching wires does to a part.
 

@@ -1,5 +1,11 @@
 # What attaching a wire to a part writes (found, at last)
 
+**Corrected since**: the entries are not a list with a count - they are one slot per pin, at
+`record + 407`, `+411`, `+415` for pins 1, 2, 3, each holding the tail block offset of the wire on
+that pin. The `count` this page says went from 0 to 3 is the fixed four-byte header
+`12 00 03 00`, which the base already had; only the slot contents change. See
+[dsn-wire-slots.md](dsn-wire-slots.md).
+
 Two wires drawn by hand - U3:C pin 8 to pin 10, then U3:B pin 6 to U3:C pin 9 - and saved. The
 second one is the interesting one: a wire between two *parts*. Diffing it against a byte-exact
 reproduction of the first wire shows what had been missing from every scripted wire.
