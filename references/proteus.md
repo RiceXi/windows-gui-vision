@@ -112,9 +112,30 @@ part at design (1.400, -0.800), (1.400, -1.000) and (2.400, -0.900), and clickin
 two left ones did not start a wire either.
 
 So a part placed by script draws and saves, but does not answer where its own symbol shows its
-pins. The next thing to compare is a part placed by hand, click for click, in the same design -
-if that one answers, the difference is in the placement sequence or its timing rather than in
-the design.
+pins. Here is what that turned out to be.
+
+### The placed instance names a device the design does not define
+
+Placed by hand, with mouse movement between the clicks and a second between each, the result is
+the same: the part draws (378 pixels of ink), the file grows by 362 bytes, and its pins still do
+not answer a 75-point probe at three pixel spacing around the tips the drawing shows.
+
+The records explain why. In the original design every part carries
+`COMPONENT ID = NAND2`, while the instance the placement writes carries
+`COMPONENT ID = NAND_2`. Those are different identifiers: the design embeds a definition for
+`NAND2`, and the current library places `NAND_2`. What gets drawn is a stand-in for a device the
+design cannot resolve, which is why the symbol looks like a plain triangle and why it has no
+connection points. The 362 bytes that were added are the instance record and its directory
+entry - no definition came with it.
+
+So placing parts from a Labcenter-authored design cannot work, however carefully the clicks are
+timed: the design's device list names the current library device while its embedded definitions
+use the older identifier. Two ways out, both to be tried next:
+
+* start a fresh design in this installation and add the devices with Pick Devices, so the list
+  entry, the instance and the embedded definition all carry the same identifier;
+* or use Pick Devices on an older design to add the device again, which embeds the definition
+  that goes with the current library.
 
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
