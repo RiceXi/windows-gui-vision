@@ -27,6 +27,7 @@ param(
     [string]$Calib = "",                       # a known pin, "x,y"; defaults to the first wire's first end
     [int]$OffsetX = 0, [int]$OffsetY = 0,      # nudge if the mapping is off; see -CheckFirst
     [switch]$CheckFirst,                       # require the rubber band after the first click of each wire
+    [int]$JunctionX = 30, [int]$JunctionY = 170,   # the 连接点 tool, named from the status bar
     [double]$OriginX = 785, [double]$OriginY = 440, [double]$Scale = 100,
     [string]$Exe = 'C:\Program Files (x86)\Labcenter Electronics\Proteus 7 Professional\BIN\ISIS.EXE',
     [string]$Pwsh = 'C:\Users\yangf\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell\pwsh.exe',
@@ -164,15 +165,20 @@ foreach ($line in (Get-Content -LiteralPath $WireList)) {
     $pts = @()
     if ($line.Contains(';')) {
         foreach ($p in ($line -split ';')) {
-            $v = $p.Trim() -split ','
+            $p = $p.Trim()
+            # a leading @ marks a point on an existing wire: place a junction there first, so the
+            # new wire starts from the node - the only way to join three pins to one net
+            $isTap = $p.StartsWith('@')
+            if ($isTap) { $p = $p.Substring(1) }
+            $v = $p -split ','
             if ($v.Count -ne 2) { Write-Error "bad point in '$line'"; exit 3 }
-            $pts += ,@([double]$v[0], [double]$v[1])
+            $pts += ,@([double]$v[0], [double]$v[1], $isTap)
         }
     } else {
         $v = $line -split ','
         if ($v.Count -ne 4) { Write-Error "bad wire line: $line"; exit 3 }
-        $pts += ,@([double]$v[0], [double]$v[1])
-        $pts += ,@([double]$v[2], [double]$v[3])
+        $pts += ,@([double]$v[0], [double]$v[1], $false)
+        $pts += ,@([double]$v[2], [double]$v[3], $false)
     }
     $wires += ,$pts
 }
@@ -296,6 +302,13 @@ foreach ($w in $wires) {
     [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
     Start-Sleep -Milliseconds 400
     Clear-Dialogs $proc.Id
+    if ($w[0][2]) {
+        # The first point is on an existing wire, not on a pin. No tool has to be selected for
+        # this: clicking a wire *is* the tap gesture - Isis splits the wire, leaves a node at the
+        # click and starts a new wire from it. An earlier version pressed the 连接点 button first,
+        # and with that mode active a click on a wire did nothing at all.
+        Write-Output ("  tap: ({0},{1}) is on an existing wire, the node comes from clicking it" -f $w[0][0], $w[0][1])
+    }
     Click-Point $ax $ay
     if ($CheckFirst) {
         # the baseline is taken here rather than before the loop: a capture in the middle of a wire

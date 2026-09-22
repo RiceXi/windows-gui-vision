@@ -20,6 +20,7 @@
       "confidence": "A and Y measured on three units and reproduced independently by scripts/dsn_learn_pins_file.py reading the wires back out of the files; B verified from the hand-drawn wire's final point",
       "how_to_extend": "put the device in a design, wire one pin per unit, then run scripts/dsn_learn_pins_file.py over that design: it reads each instance's slots, follows them to the attached wires, and reports every wire endpoint that lies on the symbol as a pin, in pin order. references/dsn-draw-wires.md has the rules this depends on"
       "correction": "an earlier version of this file used offsets measured from a magnified crop (-0.25,0.025 / 0.69,-0.075) and they do not reproduce these wire endpoints - they were relative to a different reference point"
-    }
+    },
+    "_anchor_warning": "The two int32s at record+384/+388 are the anchor for the records this project's tools write. They are NOT the anchor in a design Isis saved itself: in dsn_smoke/fresh1.DSN those fields read (0.8,0.0) and (-1.2,0.0) while the two gates appear at about (2.1,0.8) and (2.1,-1.3) in a capture (cross-checked with the vision model). Pin offsets only mean something together with the convention they were measured under, so a device learned from an Isis-saved design needs its own measurement."
   }
 }
