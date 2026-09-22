@@ -46,3 +46,28 @@ Any GUI result recorded while this dialog was up must be treated as unmeasured: 
 the wire-gesture controls, and the placement evidence all date from sessions in this state. The
 file-level results (byte-exact instance appends, whole-load checks, the pin-map entry, the
 pointer-relocation rule) stand, because they never depended on a click landing.
+
+## It does not accept synthetic input (measured)
+
+`IsWindowEnabled` on the main window returns **False** while the notice is up, which is the
+confirmation that this is a modal state rather than a slow load. The notice now has a dismiss
+helper - `scripts/proteus_dismiss_notice.ps1` - and none of what it tried worked:
+
+| attempt | result |
+| --- | --- |
+| `{ENTER}`, `{SPACE}`, `{ESC}`, `~`, `Alt+F4` to the foreground | notice still open, main window still disabled |
+| clicking along its bottom edge, every 24 px | notice still open |
+| `ShowWindow(SW_SHOW)` then `BringWindowToTop` then `SetWindowPos(HWND_TOPMOST)` then `SetForegroundWindow` | notice still open, main window still disabled |
+
+A screen capture of the notice's own rectangle shows the **main window's canvas**, not a dialog -
+so the notice is behind the main window, and clicks aimed at its rectangle land on the disabled
+main window instead. `SetForegroundWindow` is refused to a background process, which is why
+raising it that way does not help either.
+
+## The next thing to measure, and it is cheap
+
+Before any more attempts at the button: launch Isis, touch nothing, and poll
+`IsWindowEnabled(main)` once a second for a couple of minutes. If it flips to true on its own the
+window is a slow load and the answer is simply to wait; if it stays false, then a modal dialog
+really is holding the process, its own window is not the 294x136 one, and the enumeration that
+looks for "a window narrower than the main one" is looking in the wrong place.
