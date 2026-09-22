@@ -235,6 +235,30 @@ of an existing wire and see whether the canvas starts following the pointer - an
 happens go back to probing pins. If the gesture will not draw at all, the GUI half of this
 workflow is not available and the file half has to stand on its own.
 
+#### Two things that were sitting on top of the canvas
+
+Diagnosing the gesture turned up both of them, and either is enough to eat every click.
+
+* **The notice window is parked exactly where the test points are.** Listing the windows of the
+  Isis process right after a launch shows a second visible window titled `ISIS Professional` at
+  (573, 358), 294x136 - a 294 by 136 rectangle sitting on the canvas. The base design's wires run
+  across y = -0.3 to 0.8 inch, which is screen y 370 to 480, and x 0.6 to 1.4 inch, which is
+  screen 850 to 930: the mid-wire points used as the control are inside that rectangle, so their
+  clicks land on the notice, not the canvas. Closing it is what `-CloseNotices` is for, and the
+  close should be verified by listing the windows again rather than assumed. Picking a test point
+  outside the rectangle - for example (1.30, 0.80) on the long input wire, screen (920, 370) - is
+  the cheap way to tell the two cases apart.
+* **The status bar keeps saying it is loading.** `proteus_wait_ready.ps1` polls the hint area and
+  stops when the text no longer reads 正在加载设计, and on this machine the message was still
+  there more than four minutes after launch - while the earlier `design_loadcheck.ps1` runs were
+  reporting the design loaded. So the message lingers and is not a readiness signal; do not gate
+  the first click on it.
+
+Both of these mean the "the gesture does not draw" conclusion above is not safe either. The
+reliable sequence is: launch, list the windows, close the notice, list them again to confirm only
+the main window is visible, then click a point that is both a connection point and outside where
+the notice used to be.
+
 The most useful thing the acceptance test taught is why generated designs degrade. Measured on
 the five-instance base, with `dsn_savecheck.ps1 -Modify` (open, drop one more part in so Isis
 actually writes, save, compare the object list):
