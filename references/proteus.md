@@ -198,6 +198,17 @@ that a design left in selection mode ignores them; the mode buttons are the icon
 left, and which one is active can be read from the pressed state. Check that before trying the
 drag variant (press, move, release), which is the one drop method not yet tried.
 
+The mode buttons are higher up than they look. The icon column starts at window y 57 with the
+selection tool and y 71 with component mode, on a pitch near 13 pixels - the icons run out
+around y 180, where the panel's list begins. The earlier clicks at y 89..197 were below the
+icons and hit the panel instead, which is why eight of them left the selector showing DEVICES
+without changing anything.
+
+Clicking component mode at (28, 84), selecting the device and clicking the sheet still leaves an
+empty design - 6925 bytes, no part records - so the mode is not what the drop is waiting on
+either. At this point the drop has been tried four ways, in both modes, on a two-unit device and
+a one-unit device, with the sheet area confirmed and the pointer verified as loaded.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
