@@ -76,32 +76,35 @@ Both ground truths came out of the same recipe, which is the one worth reusing:
 
 ### A wire that touches nothing is not a wire
 
-#### Where the pins are is the real blocker (measured)
+#### Where the pins are is the real blocker (measured, and one claim retracted)
 
-The generated wires miss the pins, and the pin table is why. Two probes on a part ISIS placed
-itself, and one on a part the script appended:
+**Correction to an earlier note in this file.** A first pass found one "hit" on a part Isis
+placed itself - a small ink change at anchor + (-0.25, +0.125) - and it was written up as a live
+connection point. Repeating it does not reproduce: the same point, and forty more around the
+symbol on both sides at 0.05 inch steps, all came back with no change at all, in a fresh session
+with the same file. So the hit was not a wire starting; treat it as noise from a repaint. What
+stands is the negative result, and it now covers both routes:
 
-| what was probed | result |
-| --- | --- |
-| placed part, grid over the symbol | exactly one live connection point, at anchor + (-0.25, +0.125) |
-| the same point +-0.05 inch | nothing (the connection point is genuinely local) |
-| appended part, 48 point grid around the symbol | no connection point at all |
-| click on the live pin, then on the predicted sibling pin, save | no wire commits, file unchanged |
+* a part the **script appended** to the design: no connection point anywhere on it;
+* a part **placed through the GUI** (the control design's U4:B, written by Isis itself, saved and
+  reopened): no connection point found either;
+* the design's **own** parts, the ones the base design shipped with, do answer - the earlier
+  session's probe found exactly one wire around the junction at (0.7, 0.8), and the wire gestures
+  in this file were all drawn between such points.
 
-So the appended part draws its symbol and refuses to be wired: the file route can add *parts*
-that look right and cannot be connected to anything, which is exactly the "phantom" the
-append notes already warned about. Two consequences:
+That is the state of the blocker: a circuit made of *newly added* parts cannot be wired, by
+either the file route or the GUI route, while the parts a design already had stay wireable.
+Until something changes that, the skill can add parts (verified) and cannot connect them.
 
-* `pin_tables.json`'s offsets are about 0.1 inch off in y for the unit measured, so they have to
-  be re-measured per unit before any generated net can land on a pin;
-* a wire needs *two* live connection points, and finding them means probing, one candidate at a
-  time. Probing is what `proteus_probe_pins.ps1` does; the rubber-band check used here (click a
-  candidate, move, capture twice, subtract) is a cheaper filter that found the same pin.
+The earlier version of this section said the placed part answered at its pin and that
+`pin_tables.json` was 0.1 inch off. Both of those came from the single unreproducible hit, so
+neither should be relied on; the pin table still has to be measured properly before generated
+nets can be trusted to land on pins.
 
-The practical route for a *wired* circuit is therefore parts placed by ISIS (which does answer
-at its pins) plus wires drawn by ISIS gestures, with `dsn_savecheck.ps1 -Modify` deciding
-whether the result is real. The file writer stays useful for what it is verified to do:
-appending instances to an existing design and one or two wires, nothing that has to connect.
+Probing is cheap per candidate but has to be repeated: click a candidate, move the pointer,
+capture the canvas, capture it again, subtract - `scripts/proteus_probe_pins.ps1` does the
+clicking and this file's `diff2.py`-style check is the cheaper filter. What it costs is time:
+about 1.2 s per candidate, and the pins are sparse.
 
 The most useful thing the acceptance test taught is why generated designs degrade. Measured on
 the five-instance base, with `dsn_savecheck.ps1 -Modify` (open, drop one more part in so Isis
