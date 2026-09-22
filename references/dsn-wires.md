@@ -67,6 +67,12 @@ The hypothesis worth testing next is that they belong to the two objects whose p
 connects, in which case they could be located from the wire's endpoints and the whole thing
 becomes automatic.
 
+`--find-links` shortens the search. In this design the two fields are the only 2-byte zeros
+preceded by a run of three 4-byte offsets that land inside the object area, and it prints
+exactly those two. The four 2D graphic objects have similar-looking lists with two offsets
+each, so the threshold is what separates them - treat the output as a shortlist and confirm it
+against a hand-drawn wire before trusting it on an unfamiliar design.
+
 ## The comparison that produced this
 
 Two saves of the same build, one edit apart:

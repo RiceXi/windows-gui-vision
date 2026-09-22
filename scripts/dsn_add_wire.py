@@ -62,6 +62,32 @@ def last_wire(d, head, tail):
     return ok[-1]
 
 
+def find_link_fields(d, head, tail, min_offsets=3):
+    """Candidate link fields: a 2-byte zero following a run of plausible object offsets.
+
+    In the design this was measured on, the two fields that ISIS writes are each preceded by
+    three 4-byte offsets that land inside the object area, while the four 2D graphic objects
+    have two. That is a heuristic, not a rule - it is here to shorten the search, and the
+    answer for a new design class should be confirmed against one hand-drawn wire.
+    """
+    out = []
+    for off in range(head, tail - 2):
+        if struct.unpack_from("<H", d, off)[0] != 0:
+            continue
+        offs = []
+        p = off
+        while p - 4 >= head:
+            v = struct.unpack_from("<I", d, p - 4)[0]
+            if head < v < tail:
+                offs.append(v)
+                p -= 4
+            else:
+                break
+        if len(offs) >= min_offsets:
+            out.append((off, len(offs), offs))
+    return out
+
+
 def add_wire(base, points, links, out=None):
     d = bytearray(base)
     head = d.find(MARKER)
@@ -95,11 +121,19 @@ def main():
                     help="x,y in inches, in order; repeat for each point")
     ap.add_argument("--link", action="append", type=int, default=[],
                     help="offset of a 2-byte link field to point at the new wire")
+    ap.add_argument("--find-links", action="store_true",
+                    help="print candidate link fields and stop")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
     pts = [tuple(float(v) for v in p.split(",")) for p in args.points]
     base = open(args.base, "rb").read()
+    if args.find_links:
+        h = base.find(MARKER)
+        t = base.find(MARKER, h + 1)
+        for off, cnt, offs in find_link_fields(base, h, t):
+            print("candidate link field at %6d, after %d offsets %s" % (off, cnt, offs))
+        return 0
     data, info = add_wire(base, pts, args.link, out=args.out)
     print("wrote %s: %d bytes (+%d), wire at %d, %d points"
           % (args.out, len(data), info["inserted"], info["inserted_at"], len(pts)))
