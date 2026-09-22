@@ -118,6 +118,25 @@ lead lines, which `region_ascii.py` will show you. Click a few pixels off and yo
 part instead; if the symbol goes solid, you hit the body rather than the pin. Afterwards,
 compile the netlist or check with a capture that both ends show a connection dot.
 
+The snapping is forgiving enough to script against. Measured: a click 0.03 inch - three pixels
+at 100 px/in - off both axes still connected, and the wire ISIS wrote has its endpoints exactly
+on the pins, `(0.700, 0.800)` and `(0.700, -0.300)`. So a script does not need exact pin
+coordinates, only the right neighbourhood, and the result is verifiable without looking at the
+screen: parse the saved design and check where the wire's endpoints ended up.
+
+`scripts/dsn_pins.py` lists the candidates for a part: it takes the endpoints of the wires
+around each component and reports them as offsets from the component's anchor. Points shared by
+two instances of the same part are its pins; the rest are wire bends. Wire a part once by hand,
+read the offsets, and you can place and wire more copies of it by script.
+
+The offsets belong to the *record*, not to the part name. A record carries the instance's
+orientation, and a clone keeps it, so offsets measured on one instance transfer to every clone
+of that same record. They do not transfer to instances that were placed separately - measured
+once: a NAND record lifted from a design with no wires, placed at a new position, did not
+connect at the pin offset that another NAND in the base design uses. That is why the donor
+sheet approach works and guessing does not: place one instance per part type with the record you
+intend to clone, wire it once, and measure.
+
 ## Sample designs, which are the fastest way to a waveform
 
 Under `SAMPLES\` in the install directory:

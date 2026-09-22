@@ -29,6 +29,13 @@ param(
     [int]$MoveY = -1,
     [int]$ClickX = -1,
     [int]$ClickY = -1,
+    [double]$WireX1 = [double]::NaN,
+    [double]$WireY1 = [double]::NaN,
+    [double]$WireX2 = [double]::NaN,
+    [double]$WireY2 = [double]::NaN,
+    [double]$OriginX = 790,
+    [double]$OriginY = 450,
+    [double]$Scale = 100,
     [string]$Keys = "",
     [switch]$Focus
 )
@@ -79,4 +86,20 @@ if ($Focus -and [PIn]::main -ne [IntPtr]::Zero) {
 }
 if ($MoveX -ge 0 -and $MoveY -ge 0) { [void][PIn]::SetCursorPos($MoveX, $MoveY); Start-Sleep -Milliseconds 300 }
 if ($ClickX -ge 0 -and $ClickY -ge 0) { [PIn]::Click($ClickX, $ClickY); Start-Sleep -Milliseconds 300 }
+
+if (-not [double]::IsNaN($WireX1)) {
+    # design inches -> screen pixels. ISIS snaps to a pin when the pointer is within a few
+    # pixels, so the pair does not have to be exact; three pixels off still connected in
+    # testing. See references/proteus.md and references/coords.md.
+    function To-Screen([double]$x, [double]$y) {
+        @([int][Math]::Round($OriginX + $x * $Scale), [int][Math]::Round($OriginY - $y * $Scale))
+    }
+    $p1 = To-Screen $WireX1 $WireY1
+    $p2 = To-Screen $WireX2 $WireY2
+    Write-Output ("wire: design ({0},{1}) -> ({2},{3})  screen ({4},{5}) -> ({6},{7})" -f $WireX1,$WireY1,$WireX2,$WireY2,$p1[0],$p1[1],$p2[0],$p2[1])
+    [PIn]::Click($p1[0], $p1[1]); Start-Sleep -Milliseconds 1200
+    [void][PIn]::SetCursorPos($p2[0], $p2[1]); Start-Sleep -Milliseconds 600
+    [PIn]::Click($p2[0], $p2[1]); Start-Sleep -Milliseconds 1200
+    [void][PIn]::SetCursorPos(1150, 150)
+}
 if ($Keys -ne "") { [System.Windows.Forms.SendKeys]::SendWait($Keys); Write-Output "sent keys: $Keys" }
