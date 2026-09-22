@@ -213,6 +213,28 @@ The next thing to do is not another conclusion, it is to rebuild the pin test so
 wire (that is how it produced exactly one wire once), and if that does not reproduce either, do
 it the slow, unambiguous way - one candidate per save, file diffed after each.
 
+#### The control that settles it: the gesture itself does not draw
+
+Ran the test that should have been run first, with two points that *must* be valid connection
+points - midway along two existing wires, which the help says are connection points along their
+whole length. (0.65, 0.80) and (1.05, 0.80) in the base design, Component mode clicked first,
+nothing armed. No wire commits: file 21588 bytes before and after, still six wires. Repeated
+with a slow two-step gesture, a pointer move between the clicks and a second of settling time -
+same result.
+
+So the instrument is not just imprecise, it does not work in these sessions at all: whatever the
+earlier session had set up, this one does not reproduce it, and every "no pins" reading taken
+with it means nothing at all. That also removes the reason to prefer one part-creation route
+over the other - the question of whether added parts are wireable is open again, and it cannot be
+answered until a gesture that draws is available.
+
+What to do next is therefore mechanical rather than scientific: get one wire committed from the
+kernel outwards - confirm the mode from the status bar (the hint sits in the bar at the bottom,
+OCR it rather than assuming), click the Component Mode button, then click a point in the middle
+of an existing wire and see whether the canvas starts following the pointer - and only once that
+happens go back to probing pins. If the gesture will not draw at all, the GUI half of this
+workflow is not available and the file half has to stand on its own.
+
 The most useful thing the acceptance test taught is why generated designs degrade. Measured on
 the five-instance base, with `dsn_savecheck.ps1 -Modify` (open, drop one more part in so Isis
 actually writes, save, compare the object list):
