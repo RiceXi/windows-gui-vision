@@ -16,8 +16,9 @@
         "D": {"A": 13, "B": 12, "Y": 11}
       },
       "unit_shapes": "all four units are drawn the same way: two inputs on the left, output on the right",
-      "measured_from": "wire endpoints read out of hand_wire.DSN (hand drawn), wire_ok.DSN and multi.DSN (drawn by scripts/dsn_draw_wires.ps1): U3:A anchor (2.0,1.0) with pin 1 at (1.5,1.1) and pin 3 at (2.5,1.0); U3:B anchor (2.0,-1.0) with pin 4 at (1.5,-0.9) and pin 6 at (2.5,-1.0); U3:C pins 10/9/8 at (-4.5,-1.4)/(-4.6,-1.9)/(-3.5,-1.5); U4:A pin 3 at (2.0,-2.5)",
-      "confidence": "A and Y are measured on three units; B follows from the two symmetric inputs and has not been probed on its own yet",
+      "measured_from": "wire endpoints read out of hand_wire.DSN (hand drawn), wire_ok.DSN and multi.DSN (drawn by scripts/dsn_draw_wires.ps1). U3:A anchor (2.0,1.0): pin 1 at (1.5,1.1), pin 3 at (2.5,1.0). U3:B anchor (2.0,-1.0): pin 4 at (1.5,-0.9), pin 6 at (2.5,-1.0). U3:C: pins 10/9/8 at (-4.5,-1.4)/(-4.5,-1.6)/(-3.5,-1.5) - pin 9 is the last point of the hand-drawn wire, which ends on the pin's stub end. U4:A pin 3 at (2.0,-2.5)",
+      "confidence": "A and Y measured on three units and reproduced independently by scripts/dsn_learn_pins_file.py reading the wires back out of the files; B verified from the hand-drawn wire's final point",
+      "how_to_extend": "put the device in a design, wire one pin per unit, then run scripts/dsn_learn_pins_file.py over that design: it reads each instance's slots, follows them to the attached wires, and reports every wire endpoint that lies on the symbol as a pin, in pin order. references/dsn-draw-wires.md has the rules this depends on"
       "correction": "an earlier version of this file used offsets measured from a magnified crop (-0.25,0.025 / 0.69,-0.075) and they do not reproduce these wire endpoints - they were relative to a different reference point"
     }
   }

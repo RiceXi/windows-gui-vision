@@ -53,6 +53,14 @@ work": a click that lands on the body instead of the pin selects the part, and e
 in that run is dead. Both scripts press ESC before each wire or probe for that reason, and the
 same ESC closes a properties dialog if one did open.
 
+**8. A pin's interactive point is the outer end of its own stub.** The user's words: 一般的引脚可交互
+位置为该线段的末端端点. A wire drawn to a pin ends exactly there, so the endpoint stored in the file
+*is* the pin - but the reverse is not true: a wire's intermediate bend is not a pin. Reading pin
+positions out of an existing design therefore means taking wire *endpoints*, never the points in
+between. This matters because it is easy to mistake a bend for a pin: in this project a wire ran
+`... (-3.3,-1.9) (-4.6,-1.9) (-4.6,-1.6) (-4.5,-1.6)`, and pin 9 of that gate is the last point
+(-4.5,-1.6), not the bend at (-4.6,-1.9).
+
 ## Evidence
 
 One wire, drawn by the script from U3:C pin 10 to pin 8 on the five gate base:

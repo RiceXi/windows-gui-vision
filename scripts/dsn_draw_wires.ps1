@@ -223,6 +223,14 @@ function Clear-Dialogs([int]$procId) {
     }
 }
 
+function Count-Wires([string]$path) {
+    # A wire object is the 8 byte prefix followed by 02 7f "WIRE" 00. Counting them is the cheap
+    # self-check the run needs: it says whether the clicks actually produced wires.
+    $bytes = [System.IO.File]::ReadAllBytes($path)
+    $s = [System.Text.Encoding]::GetEncoding(28591).GetString($bytes)
+    return ([regex]::Matches($s, "(?s)\xff\xff\xff\x00\xff\xff\xff\x00\x02\x7fWIRE\x00")).Count
+}
+
 $n = 0
 foreach ($w in $wires) {
     $n++
@@ -260,10 +268,16 @@ foreach ($w in $wires) {
 [DW]::SetCursorPos(1150, 150) | Out-Null; Start-Sleep -Milliseconds 400
 
 $before = (Get-Item -LiteralPath $Path).Length
+$wiresBefore = Count-Wires $Path
 [System.Windows.Forms.SendKeys]::SendWait('^s')
 Start-Sleep -Seconds 4
 $after = (Get-Item -LiteralPath $Path).Length
-Write-Output ("{0} bytes -> {1} bytes after {2} wire(s)" -f $before, $after, $wires.Count)
+$wiresAfter = Count-Wires $Path
+$drew = $wiresAfter - $wiresBefore
+Write-Output ("{0} bytes -> {1} bytes after {2} wire(s); wires in the file {3} -> {4} (drew {5})" -f $before, $after, $wires.Count, $wiresBefore, $wiresAfter, $drew)
+if (($wiresAfter - $wiresBefore) -lt $wires.Count) {
+    Write-Output "WARNING: fewer wires appeared than were asked for - some clicks missed their pin"
+}
 if (-not $KeepOpen) {
     Get-Process ISIS -ErrorAction SilentlyContinue | Stop-Process -Force
     Write-Output "closed Isis"

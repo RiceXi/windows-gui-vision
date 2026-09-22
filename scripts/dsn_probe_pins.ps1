@@ -21,6 +21,7 @@ param(
     [Parameter(Mandatory=$true)][string]$Center,
     [double]$HalfW = 0.8, [double]$HalfH = 0.5, [double]$Step = 0.1,
     [double]$ProbeDX = 0.15, [switch]$ProbeDY,          # probe to the right, or down, of the point
+    [string]$Candidates = "",                            # optional file of "x,y" points to try instead of a grid
     [double]$OriginX = 785, [double]$OriginY = 440, [double]$Scale = 100,
     [string]$Exe = 'C:\Program Files (x86)\Labcenter Electronics\Proteus 7 Professional\BIN\ISIS.EXE',
     [string]$Pwsh = 'C:\Users\yangf\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell\pwsh.exe',
@@ -128,10 +129,29 @@ Write-Output ("notice {0}; window {1},{2}; origin {3},{4}" -f $pressed, $rect[0]
 
 function To-Screen([double]$x, [double]$y) { @([int][Math]::Round($ox + $x*$Scale), [int][Math]::Round($oy - $y*$Scale)) }
 
+# Candidates: an explicit list when the caller has a rough idea (a vision model's estimate, say),
+# otherwise a grid. Keep the list short - every probe is two clicks and about four seconds, and a
+# long unattended loop is exactly what wastes time when something is off.
+$points = @()
+if ($Candidates -ne "") {
+    foreach ($line in (Get-Content -LiteralPath $Candidates)) {
+        $line = $line.Trim()
+        if ($line -eq "" -or $line.StartsWith("#")) { continue }
+        $v = $line -split ','
+        $points += ,@([double]$v[0], [double]$v[1])
+    }
+} else {
+    for ($dy = -$HalfH; $dy -le $HalfH + 1e-9; $dy += $Step) {
+        for ($dx = -$HalfW; $dx -le $HalfW + 1e-9; $dx += $Step) {
+            $points += ,@($cxD + $dx, $cyD + $dy)
+        }
+    }
+}
+Write-Output ("{0} candidate point(s) to probe" -f $points.Count)
+
 $tried = 0
-for ($dy = -$HalfH; $dy -le $HalfH + 1e-9; $dy += $Step) {
-    for ($dx = -$HalfW; $dx -le $HalfW + 1e-9; $dx += $Step) {
-        $x = $cxD + $dx; $y = $cyD + $dy
+foreach ($pt in $points) {
+        $x = $pt[0]; $y = $pt[1]
         $p = To-Screen $x $y
         $q = if ($ProbeDY) { To-Screen $x ($y - $ProbeDX) } else { To-Screen ($x + $ProbeDX) $y }
         # a selected part (it draws red) refuses to start wires, and a probe that landed on the body
@@ -153,7 +173,6 @@ for ($dy = -$HalfH; $dy -le $HalfH + 1e-9; $dy += $Step) {
         }
         $tried++
         if ($tried % 10 -eq 0) { Write-Output ("  {0} probes" -f $tried) }
-    }
 }
 Write-Output ("{0} probes done; saving" -f $tried)
 [System.Windows.Forms.SendKeys]::SendWait('^s')
