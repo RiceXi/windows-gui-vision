@@ -185,6 +185,34 @@ placement look like a hand one (move the pointer first so a preview is following
 to drop, then a slow second click), and if that changes nothing, a single hand-placed reference
 part is what settles it.
 
+#### Before trusting any of the above: the probe does not reproduce
+
+The honest correction. This section's pin conclusions rest on a rubber-band probe - click a
+candidate, move the pointer, capture the canvas twice, subtract - and that probe does not
+reproduce. The base design's junction at (0.70, 0.80) gave a 226 pixel reading the first time it
+was tried and reads zero now, and the file oracle agrees: clicking it and finishing on a second
+known point commits no wire and leaves the file unchanged.
+
+So the transient hits at (0.70, 0.80) and at the placed part's (2.75, 3.125) were probably not
+wire starts, and everything above that depends on them - "appended parts have no pins",
+"placed parts have no pins", "the identifier does not matter" - is **unproven rather than
+settled**. The parts may well be wireable; what is established is that this probe cannot say.
+
+What stays, because it is measured with the file rather than with pixels:
+
+* appended instances are byte-exact and the design loads whole (`dsn_savecheck.ps1 -Modify`);
+* generated *wires* are dropped or only partly loaded, and a generated wire with both ends in
+  empty canvas disappears on save;
+* placement needs Component mode (`proteus_place.ps1` now clicks it, and a placement adds exactly
+  one 451 byte record);
+* the help says there is no wire mode and that wires run connection point to connection point;
+* ISIS 7 registers no COM automation server, so the file is the only automation surface.
+
+The next thing to do is not another conclusion, it is to rebuild the pin test so it reproduces:
+`proteus_probe_pins.ps1` against a known-good pin, checking the saved file for the committed
+wire (that is how it produced exactly one wire once), and if that does not reproduce either, do
+it the slow, unambiguous way - one candidate per save, file diffed after each.
+
 The most useful thing the acceptance test taught is why generated designs degrade. Measured on
 the five-instance base, with `dsn_savecheck.ps1 -Modify` (open, drop one more part in so Isis
 actually writes, save, compare the object list):
