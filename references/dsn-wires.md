@@ -53,6 +53,12 @@ and five single-byte fields that it also touches and that do not affect loading.
 were tested separately: with the link fields written (F) ISIS opens the design; with everything
 except them (G) it crashes. `scripts/dsn_add_wire.py` reproduces the working version exactly.
 
+And the round trip holds. A design with a script-added wire, opened in ISIS and saved from
+inside it, came back with seven wires instead of six and the new one still routed through the
+same six points: `(0.7, 0.8) (0.7, 0.9) (0.8, 0.9) (0.8, -0.4) (0.7, -0.4) (0.7, -0.3)`. ISIS
+normalises the file on save - 18515 bytes became 18467 - but it kept the wire, which is the
+acceptance test that matters.
+
 ## The one thing still manual
 
 The two link fields have to be pointed at with `--link <offset>`. Their meaning is not pinned
