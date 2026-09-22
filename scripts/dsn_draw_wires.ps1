@@ -106,6 +106,26 @@ public class DW {
    }, IntPtr.Zero);
    return n;
  }
+ public static int PressCancel(uint want, int maxw) {
+   int done=0;
+   EnumWindows(delegate(IntPtr h, IntPtr l) {
+     uint pid; GetWindowThreadProcessId(h, out pid);
+     if (pid!=want || !IsWindowVisible(h)) return true;
+     RECT r; GetWindowRect(h, out r);
+     if (r.Right-r.Left >= maxw) return true;
+     EnumChildWindows(h, delegate(IntPtr c, IntPtr l2) {
+       if (Cls(c) != "Button" || !IsWindowVisible(c)) return true;
+       string t = Text(c);
+       if (t.StartsWith("\u53d6\u6d88") || t.StartsWith("Cancel") || t.StartsWith("Close") || t.StartsWith("\u5173\u95ed")) {
+         PostMessage(h, 0x0111, (IntPtr)GetDlgCtrlID(c), c);
+         done++;
+       }
+       return true;
+     }, IntPtr.Zero);
+     return true;
+   }, IntPtr.Zero);
+   return done;
+ }
  public static int PressOk(uint want, int maxw) {
    int done=0;
    EnumWindows(delegate(IntPtr h, IntPtr l) {
@@ -138,12 +158,26 @@ $wires = @()
 foreach ($line in (Get-Content -LiteralPath $WireList)) {
     $line = $line.Trim()
     if ($line -eq "" -or $line.StartsWith("#")) { continue }
-    $v = $line -split ','
-    if ($v.Count -ne 4) { Write-Error "bad wire line: $line"; exit 3 }
-    $wires += ,@([double]$v[0], [double]$v[1], [double]$v[2], [double]$v[3])
+    # A wire is a sequence of points, so a routed one can bend around a symbol:
+    #   "x1,y1,x2,y2"                 two points
+    #   "x1,y1;x2,y2;x3,y3"           a polyline, clicked point by point
+    $pts = @()
+    if ($line.Contains(';')) {
+        foreach ($p in ($line -split ';')) {
+            $v = $p.Trim() -split ','
+            if ($v.Count -ne 2) { Write-Error "bad point in '$line'"; exit 3 }
+            $pts += ,@([double]$v[0], [double]$v[1])
+        }
+    } else {
+        $v = $line -split ','
+        if ($v.Count -ne 4) { Write-Error "bad wire line: $line"; exit 3 }
+        $pts += ,@([double]$v[0], [double]$v[1])
+        $pts += ,@([double]$v[2], [double]$v[3])
+    }
+    $wires += ,$pts
 }
 if ($wires.Count -eq 0) { Write-Error "no wires in $WireList"; exit 3 }
-if ($Calib -eq "") { $Calib = "$($wires[0][0]),$($wires[0][1])" }
+if ($Calib -eq "") { $Calib = "$($wires[0][0][0]),$($wires[0][0][1])" }
 $cp = $Calib -split ','
 
 Get-Process ISIS -ErrorAction SilentlyContinue | Stop-Process -Force
@@ -216,28 +250,47 @@ function Clear-Dialogs([int]$procId) {
     # looks like "the click did nothing". Close it before it can do that, and say so.
     $left = [DW]::CountSmall([uint32]$procId, 700)
     if ($left -gt 0) {
-        [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
-        Start-Sleep -Milliseconds 700
+        # press Cancel by message - the same trick as the launch notice, and Cancel rather than OK
+        # so a dialog that appeared by accident cannot change the part it belongs to
+        $pressed = [DW]::PressCancel([uint32]$procId, 700)
+        Start-Sleep -Milliseconds 600
+        if ([DW]::CountSmall([uint32]$procId, 700) -gt 0) {
+            [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
+            Start-Sleep -Milliseconds 600
+        }
         $left2 = [DW]::CountSmall([uint32]$procId, 700)
-        Write-Output ("  dialog guard: {0} small window(s) -> {1} after ESC" -f $left, $left2)
+        Write-Output ("  dialog guard: {0} small window(s), pressed cancel on {1} -> {2} left" -f $left, $pressed, $left2)
     }
 }
 
 function Count-Wires([string]$path) {
-    # A wire object is the 8 byte prefix followed by 02 7f "WIRE" 00. Counting them is the cheap
-    # self-check the run needs: it says whether the clicks actually produced wires.
-    $bytes = [System.IO.File]::ReadAllBytes($path)
-    $s = [System.Text.Encoding]::GetEncoding(28591).GetString($bytes)
-    return ([regex]::Matches($s, "(?s)\xff\xff\xff\x00\xff\xff\xff\x00\x02\x7fWIRE\x00")).Count
+    # A wire object is the 8 byte prefix followed by 02 7f "WIRE" 00. The prefix has to be checked
+    # byte by byte: the same marker text turns up inside device definitions, and a plain text match
+    # counted those too (it reported ten wires where the file held eight).
+    $b = [System.IO.File]::ReadAllBytes($path)
+    $n = 0
+    for ($i = 8; $i -lt $b.Length - 6; $i++) {
+        if ($b[$i] -ne 0x02 -or $b[$i + 1] -ne 0x7f -or $b[$i + 2] -ne 0x57 -or
+            $b[$i + 3] -ne 0x49 -or $b[$i + 4] -ne 0x52 -or $b[$i + 5] -ne 0x45 -or
+            $b[$i + 6] -ne 0x00) { continue }
+        $ok = $true
+        for ($k = 0; $k -lt 8; $k++) {
+            if ($b[$i - 8 + $k] -ne @(0xff, 0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0x00)[$k]) { $ok = $false; break }
+        }
+        if ($ok) { $n++ }
+    }
+    return $n
 }
 
 $n = 0
 foreach ($w in $wires) {
     $n++
-    $a = To-Screen $w[0] $w[1]; $b = To-Screen $w[2] $w[3]
+    $a = To-Screen $w[0][0] $w[0][1]
+    $b = To-Screen $w[-1][0] $w[-1][1]
     $ax = $a[0] + $adjX; $ay = $a[1] + $adjY
     $bx = $b[0] + $adjX; $by = $b[1] + $adjY
-    Write-Output ("wire {0}: ({1},{2}) -> ({3},{4})   screen ({5},{6}) -> ({7},{8})" -f $n, $w[0], $w[1], $w[2], $w[3], $ax, $ay, $bx, $by)
+    $txt = ($w | ForEach-Object { "({0},{1})" -f $_[0], $_[1] }) -join " "
+    Write-Output ("wire {0}: {1}  screen ({2},{3}) -> ({4},{5})" -f $n, $txt, $ax, $ay, $bx, $by)
     # clear any selection first: with a part selected (it draws red) Isis does not start wires at
     # all, and a stray dialog would swallow the clicks the same way. ESC handles both.
     [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
@@ -245,6 +298,12 @@ foreach ($w in $wires) {
     Clear-Dialogs $proc.Id
     Click-Point $ax $ay
     if ($CheckFirst) {
+        # the baseline is taken here rather than before the loop: a capture in the middle of a wire
+        # cancels it, so it is only taken when this diagnostic is asked for
+        if ($null -eq $base) {
+            [DW]::SetCursorPos(1200, 780) | Out-Null; Start-Sleep -Milliseconds 900
+            $base = [DW]::Grab($main)
+        }
         # a started wire is a thin line from the pin to wherever the pointer now is
         [DW]::SetCursorPos($ax + 40, $ay) | Out-Null; Start-Sleep -Milliseconds 500
         $shot = [DW]::Grab($main)
@@ -261,7 +320,11 @@ foreach ($w in $wires) {
         }
         [DW]::SetCursorPos($ax, $ay) | Out-Null; Start-Sleep -Milliseconds 300
     }
-    Click-Point $bx $by
+    # the bends, then the far end
+    for ($k = 1; $k -lt $w.Count; $k++) {
+        $mid = To-Screen $w[$k][0] $w[$k][1]
+        Click-Point ($mid[0] + $adjX) ($mid[1] + $adjY)
+    }
     Clear-Dialogs $proc.Id
     Start-Sleep -Milliseconds 300
 }

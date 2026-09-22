@@ -61,6 +61,17 @@ between. This matters because it is easy to mistake a bend for a pin: in this pr
 `... (-3.3,-1.9) (-4.6,-1.9) (-4.6,-1.6) (-4.5,-1.6)`, and pin 9 of that gate is the last point
 (-4.5,-1.6), not the bend at (-4.6,-1.9).
 
+**9. A wire is only *finished* by clicking a connection point.** Clicking a pin starts the wire and
+clicking another pin ends it. A click out in free space does not end anything - it leaves the wire
+pending, and a later ESC cancels it, so the design ends up unchanged. This is why a probe that drew
+from a candidate point to a point in clear space produced nothing at all, and why the run's
+self-check ("wires in the file 8 -> 8, drew 0") was right to complain. Two consequences:
+
+* to draw a stub that ends in free space, finish it with a double-click there (and nowhere near a
+  part, or a properties dialog opens instead);
+* to *test* whether a coordinate is a pin, draw from it to a pin that is already known - if the
+  coordinate is not a pin, nothing starts and nothing is written.
+
 ## Evidence
 
 One wire, drawn by the script from U3:C pin 10 to pin 8 on the five gate base:

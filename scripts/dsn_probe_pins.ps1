@@ -67,6 +67,26 @@ public class PP {
    }, IntPtr.Zero);
    return n;
  }
+ public static int PressCancel(uint want, int maxw) {
+   int done=0;
+   EnumWindows(delegate(IntPtr h, IntPtr l) {
+     uint pid; GetWindowThreadProcessId(h, out pid);
+     if (pid!=want || !IsWindowVisible(h)) return true;
+     RECT r; GetWindowRect(h, out r);
+     if (r.Right-r.Left >= maxw) return true;
+     EnumChildWindows(h, delegate(IntPtr c, IntPtr l2) {
+       if (Cls(c) != "Button" || !IsWindowVisible(c)) return true;
+       string t = Text(c);
+       if (t.StartsWith("\u53d6\u6d88") || t.StartsWith("Cancel") || t.StartsWith("Close") || t.StartsWith("\u5173\u95ed")) {
+         PostMessage(h, 0x0111, (IntPtr)GetDlgCtrlID(c), c);
+         done++;
+       }
+       return true;
+     }, IntPtr.Zero);
+     return true;
+   }, IntPtr.Zero);
+   return done;
+ }
  public static int PressOk(uint want, int maxw) {
    int done=0;
    EnumWindows(delegate(IntPtr h, IntPtr l) {
@@ -167,9 +187,10 @@ foreach ($pt in $points) {
         # a dialog that did open is cleared before the next probe, and reported
         $small = [PP]::CountSmall([uint32]$proc.Id, 700)
         if ($small -gt 0) {
-            [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
+            $cancelled = [PP]::PressCancel([uint32]$proc.Id, 700)
             Start-Sleep -Milliseconds 600
-            Write-Output ("  probe {0}: {1} dialog(s) open - pressed ESC" -f ($tried + 1), $small)
+            if ([PP]::CountSmall([uint32]$proc.Id, 700) -gt 0) { [System.Windows.Forms.SendKeys]::SendWait('{ESC}') }
+            Write-Output ("  probe {0}: {1} dialog(s) open - cancelled {2}" -f ($tried + 1), $small, $cancelled)
         }
         $tried++
         if ($tried % 10 -eq 0) { Write-Output ("  {0} probes" -f $tried) }
