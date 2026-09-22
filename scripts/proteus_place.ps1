@@ -1,0 +1,84 @@
+<#
+Place a device from ISIS's object selector at a chosen design coordinate.
+
+The object selector lists the devices the design already contains, and placing one takes three
+clicks: the row in the list, a point near the target so the preview follows you, then the target
+itself. This does exactly that, converting design inches to screen pixels with the same mapping
+as proteus_input.ps1, and closes the notice window first.
+
+It will only place a device that is already in the list - which is the same constraint the file
+route has: a design can render and wire a part type it already holds. Use ISIS to add a new type
+to the list (Pick Devices) once, then place as many instances as you like from here.
+
+    powershell -File proteus_place.ps1 -TargetPid 1234 -Row 0 -AtX 2.0 -AtY 1.0
+
+Afterwards, verify. Two independent checks are cheap: capture the window and subtract it from a
+capture of the design without the part (the symbol outline is a few hundred pixels of ink), and
+parse the saved design to see the new record at the coordinate you asked for.
+#>
+param(
+    [Parameter(Mandatory=$true)][int]$TargetPid,
+    [Parameter(Mandatory=$true)][double]$AtX,
+    [Parameter(Mandatory=$true)][double]$AtY,
+    [int]$Row = 0,
+    [double]$ListX = 72,
+    [double]$FirstRowY = 220,
+    [double]$RowPitch = 13,
+    [double]$OriginX = 790,
+    [double]$OriginY = 450,
+    [double]$Scale = 100,
+    [double]$AnchorDX = -0.308,
+    [double]$AnchorDY = 0.208,
+    [int]$ClickGapMs = 1000,
+    [string]$Keys = "",
+    [int]$NoticeWidth = 700
+)
+
+$sig = @'
+using System;using System.Runtime.InteropServices;
+public class Pg {
+ [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+ [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+ [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint dx, uint dy, uint d, IntPtr e);
+ public static void Click(int x, int y) { SetCursorPos(x, y); System.Threading.Thread.Sleep(280); mouse_event(0x0002,0,0,0,IntPtr.Zero); System.Threading.Thread.Sleep(90); mouse_event(0x0004,0,0,0,IntPtr.Zero); }
+}
+'@
+Add-Type -TypeDefinition $sig
+Add-Type -AssemblyName System.Windows.Forms
+
+$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$input = Join-Path $here 'proteus_input.ps1'
+& $input -TargetPid $TargetPid -CloseNotices -Focus -NoticeWidth $NoticeWidth
+Start-Sleep -Milliseconds 800
+
+$rowY = [int][Math]::Round($FirstRowY + $Row * $RowPitch)
+Write-Output ("selecting list row {0} at window y {1}" -f $Row, $rowY)
+# Each click goes through proteus_input.ps1 in its own process. Batched clicks from one process
+# did not register with ISIS, and this sequence is the one that was measured to work.
+& $input -TargetPid $TargetPid -ClickX ([int]$ListX) -ClickY $rowY
+Start-Sleep -Milliseconds 1000
+
+function To-Screen([double]$x, [double]$y) {
+    @([int][Math]::Round($OriginX + $x * $Scale), [int][Math]::Round($OriginY - $y * $Scale))
+}
+# The point clicked and the coordinate ISIS stores are not the same point: measured on this
+# build, the record lands 0.308 inch left and 0.208 inch above where the click was. Ask for the
+# coordinate you want and click at the compensating point.
+$clickX = $AtX - $AnchorDX
+$clickY = $AtY - $AnchorDY
+$dst = To-Screen $clickX $clickY
+Write-Output ("placing at design ({0}, {1}): clicking ({2}, {3}) -> screen ({4}, {5})" -f $AtX, $AtY, $clickX, $clickY, $dst[0], $dst[1])
+# Two clicks on the same point. The first fixes the part under the pointer, the second commits
+# it; clicking a different point first (which the manual suggests for a preview) leaves the
+# placement unfinished in this build.
+& $input -TargetPid $TargetPid -ClickX $dst[0] -ClickY $dst[1]
+Start-Sleep -Milliseconds $ClickGapMs
+& $input -TargetPid $TargetPid -ClickX $dst[0] -ClickY $dst[1]
+Start-Sleep -Milliseconds $ClickGapMs
+& $input -TargetPid $TargetPid -MoveX 1150 -MoveY 150
+Start-Sleep -Milliseconds 400
+
+if ($Keys -ne "") {
+    [System.Windows.Forms.SendKeys]::SendWait($Keys)
+    Write-Output "sent keys: $Keys"
+}

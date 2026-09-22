@@ -63,7 +63,7 @@ Copy the folder to `%USERPROFILE%\.codex\skills\windows-gui-vision`, or point
 | `references/dsn-append.md` | adding a component to a design from a script, verified, and what is still missing |
 | `references/dsn-templates.md` | lifting part records out of existing designs into a json library |
 | `references/dsn-wires.md` | adding a wire by script: the tail block, the link fields, and the verified recipe |
-| `scripts/` | 26 helpers: capture, OCR, vision, pixels, calibration, layout, input, self-checks, `.DSN` reading, appending, wiring, pin lookup and load checks |
+| `scripts/` | 28 helpers: capture, OCR, vision, pixels, calibration, layout, input, placement, self-checks, `.DSN` reading, appending, wiring, pin lookup and load checks |
 
 Everything under `scripts/` is command line and prints plain text or json, so it composes in
 shell loops. `SKILL.md` and the reference files are what an agent reads; you can read them too.

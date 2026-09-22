@@ -68,6 +68,27 @@ Components, generators and instruments take three clicks: the list row, a nearby
 then the target. One click on the canvas only moves the preview, and it is easy to conclude
 the placement failed when it has not started.
 
+`scripts/proteus_place.ps1` does it from a design coordinate. Measured details, all of which
+cost time to find:
+
+* the row has to be hit in the text, not the panel. At window coordinates, a click near
+  (60..80, 212) lands on the buttons above the list and opens Pick Devices or the Devices
+  Libraries Manager instead; row 0 is at about (72, 220) with a 13 pixel pitch below it;
+* each click must come from its own process with about a second between them. Two clicks issued
+  in one process, 700 ms apart, were ignored; the same two clicks from separate short-lived
+  processes placed the part every time;
+* the point clicked and the coordinate ISIS stores are not the same point. Clicking design
+  (3.600, -1.500) stored the part at (3.292, -1.292) - 0.308 inch left and 0.208 inch above.
+  The tool asks for the coordinate you want and clicks at the compensating point;
+* asked for (3.600, -1.500) and (2.000, 1.000), it produced (3.592, -1.492) and (1.992, 1.008):
+  within 0.01 inch. Both parts were drawn - ink subtraction found 702 pixels where the base
+  design has none.
+
+What is not solved: where those new parts' pins are. A grid probe over one of them found no
+connection points at all, and the pin offset that the design's older parts of the same device
+answer to did not work on it. Until that is measured, a newly placed part can be positioned but
+not scripted-wired.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
