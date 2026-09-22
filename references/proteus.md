@@ -209,6 +209,30 @@ empty design - 6925 bytes, no part records - so the mode is not what the drop is
 either. At this point the drop has been tried four ways, in both modes, on a two-unit device and
 a one-unit device, with the sheet area confirmed and the pointer verified as loaded.
 
+### Where this stands (paused mid-investigation)
+
+Two things were still open when this was put down, and both have a saved artifact to start from.
+
+**Placing into a fresh design.** Tried and failed: one click, two clicks a second apart,
+click-then-Return, Return alone, and a press-move-release drag; in selection mode and in
+component mode; with 74S00 (four-unit) and with RES (single-unit, confirmed present in the
+selector as a second row); with the Pick Devices dialog closed and open. Every attempt leaves
+`fresh1.DSN` at 6925 bytes with no part records. The same click injection places parts in an
+older, sample-derived design, which is why this is filed as an interaction question rather than
+a broken tool.
+
+A related trap worth remembering: Ctrl+S writes nothing when the design has not changed, so a
+file whose size and timestamp never move is telling you that the edit never happened - not that
+the save failed.
+
+**Making an appended part render.** The instance record's `COMPONENT ID` differs between the
+sample design (`NAND2`) and the current library (`NAND_2`), which was the leading explanation
+for appended parts drawing as a bare reference designator. Rewriting that field in a donor
+record - 347 bytes to 346, `\xFF\x06NAND_2` to `\xFF\x05NAND2`, everything else untouched -
+produces a design ISIS opens (`AN_idfix.DSN`), but the ink subtraction still finds only 343
+pixels against the base, a label and nothing else. So the graphics are not keyed on that field
+either, and the search continues from there.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
