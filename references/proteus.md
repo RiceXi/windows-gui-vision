@@ -303,6 +303,29 @@ instance creation a solved problem for a device the design already carries, and
 `entry_tail` for the unit map. What is still open: the naming and counters when the placement
 opens a *new* package rather than the next unit of an existing one.
 
+### The third placement, and where the unit map comes from
+
+Placing the same device once more gives the next sample, and it settles two things. The name
+runs `U3:A`, `U3:B`, `U3:C` - the same physical package, next unit - so a new package only
+starts once that package's units are used up. And the entry's unit map is not arbitrary:
+
+```
+unit A:  01 00 03 00 | "A"->1  "B"->2  "Y"->3
+unit B:  02 00 03 00 | "A"->4  "B"->5  "Y"->6
+unit C:  03 00 03 00 | "A"->10 "B"->9  "Y"->8
+```
+
+Those numbers are exactly the `PINOUT` block the design carries (`IP A = 1,4,10,13`,
+`IP B = 2,5,9,12`, `OP Y = 3,6,8,11`), read unit by unit - including the reversal in unit C,
+which is why the map has to be looked up rather than computed. Across the three samples the
+entry's id read 16, 17, 18 and its sequence 3, 4, 5, and the two counters after the marker
+paired as 16,1 then 17,2 then 18,3.
+
+So for a device the design already embeds, an instance can be written from the file: clone an
+existing instance's record, name it as the next unit, and build its entry from the device's own
+PINOUT block. What has not been sampled yet is the first placement of a *new* package, which
+needs a fifth unit and therefore a fifth placement.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
