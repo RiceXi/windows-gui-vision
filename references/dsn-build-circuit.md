@@ -93,15 +93,24 @@ isolation is clean:
 | four instances, two wires well apart | crashes |
 | four instances, four wires | crashes |
 
-So instances are fine and one wire is fine; the second wire is where it goes wrong. The log says
-why: both wires report `inserted_at 14864`, the same offset, so the second insertion is looking
-for the live tail block and finding the one the first insertion already consumed, then writing
-into what the first wire owns. `dsn_add_wire.py` handles one wire correctly - that is what was
-verified against ISIS's own output - and chaining it is the missing piece.
+So instances are fine and one wire is fine; the second wire is where it goes wrong. The first
+guess was that the second insertion was reusing the first one's offset, and that did show up - two
+wires both reported `inserted_at 14864` - but fixing it so they insert at 14864 then 14930, which
+is where the chain says they belong, still crashes, and two wires with no instances at all crash
+the same way. So the tool leaves the file in a state its own next call does not understand, and
+`last_wire()` looks right in a debug print (after one insert it does point at the new wire, with
+four points and the tail block where it should be), which means the state that is wrong is
+somewhere other than that lookup.
 
 Until that is fixed, `dsn_build_circuit.py` is reliable for instances and for a single wire. Two
 workarounds: run one wire per design and merge afterwards, or write the wires from the editor
 after the parts are placed, which the instance side makes cheap.
+
+Drawing two wires by hand to get this ground truth also has a catch worth writing down: the second
+wire has to start somewhere the first one did not touch, and the run above ended with the file
+132 bytes larger rather than the 164 two wires would need, so only one of the two gestures landed.
+The pair to compare is `BC_pick5.DSN` against a copy with two hand-drawn wires that can be shown
+to contain both.
 
 ## What is not solved
 
