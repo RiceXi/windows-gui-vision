@@ -125,6 +125,7 @@ json and scratch scripts belong in a sibling working directory.
 | [dsn-build-circuit.md](references/dsn-build-circuit.md) | the whole workflow - definitions, instances, pin positions, wires, the check after each, and the end-to-end run |
 | [dsn-templates.md](references/dsn-templates.md) | lifting part records out of existing designs into a json library |
 | [proteus-modal-notice.md](references/proteus-modal-notice.md) | the launch dialog that disables the main window, and what does not dismiss it |
+| [proteus-toolbar.md](references/proteus-toolbar.md) | the left mode toolbar's buttons, named from the status bar, and the two checks for "am I on a pin" |
 | [proteus-view-drift.md](references/proteus-view-drift.md) | why the same design does not always come back at the same scroll position |
 
 `scripts/dsn_templates.py` builds that library and `scripts/dsn_add_component.py` is the
