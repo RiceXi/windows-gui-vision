@@ -83,6 +83,10 @@ cost time to find:
 * asked for (3.600, -1.500) and (2.000, 1.000), it produced (3.592, -1.492) and (1.992, 1.008):
   within 0.01 inch. Both parts were drawn - ink subtraction found 702 pixels where the base
   design has none.
+* the target has to be empty canvas. Aimed at (2.000, -1.000) in a design that has graphic
+  objects there, the clicks selected one of them instead and opened its editor - the placement
+  silently did nothing and a dialog called 编辑瞬态图表 appeared. Check the ink afterwards
+  rather than assuming.
 
 What is not solved: where those new parts' pins are. A grid probe over one of them found no
 connection points at all, and the pin offset that the design's older parts of the same device
@@ -100,6 +104,17 @@ script had just placed, with 60 candidates spread over its symbol including the 
 lead lines, it produced none. The reading is that those parts do not answer at their pins, which
 makes the placement itself the suspect: three clicks place a symbol that draws and is stored,
 but the pins do not come with it.
+
+Two controls keep that reading honest. The same design, same session, same clicks at a pin that
+is known good, still produces a wire - so the mode and the mapping are fine when the probe says
+no. And the pin positions are not guesswork: a magnified crop put the drawn pin stubs of the new
+part at design (1.400, -0.800), (1.400, -1.000) and (2.400, -0.900), and clicking exactly those
+two left ones did not start a wire either.
+
+So a part placed by script draws and saves, but does not answer where its own symbol shows its
+pins. The next thing to compare is a part placed by hand, click for click, in the same design -
+if that one answers, the difference is in the placement sequence or its timing rather than in
+the design.
 
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
