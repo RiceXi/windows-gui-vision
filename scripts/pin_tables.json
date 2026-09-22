@@ -1,0 +1,15 @@
+{
+  "note": "Pin offsets from a part's anchor, in inches. Measured once per device off a placed instance - see references/dsn-build-circuit.md for the method. Device names are the COMPONENT ID a design stores.",
+  "devices": {
+    "74LS00": {
+      "units": 4,
+      "offsets": {
+        "A": [-0.25, 0.025],
+        "B": [-0.25, -0.175],
+        "Y": [0.69, -0.075]
+      },
+      "pin_numbers": {"A": 1, "B": 2, "Y": 3},
+      "measured_from": "U4:A in BC_pick5.DSN, magnified crop, cross-checked by the wire Isis snapped onto the pin"
+    }
+  }
+}
