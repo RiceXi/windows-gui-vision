@@ -1,15 +1,24 @@
 {
-  "note": "Pin offsets from a part's anchor, in inches. Measured once per device off a placed instance - see references/dsn-build-circuit.md for the method. Device names are the COMPONENT ID a design stores.",
+  "note": "Pin offsets in inches, relative to the anchor an instance record carries (the two int32s at record+384 and record+388). This is the anchor stored in the file, not the point you click in the editor; references/dsn-draw-wires.md has the difference. Device names are the COMPONENT ID a design stores.",
   "devices": {
     "74LS00": {
       "units": 4,
       "offsets": {
-        "A": [-0.25, 0.025],
-        "B": [-0.25, -0.175],
-        "Y": [0.69, -0.075]
+        "A": [-0.5, 0.1],
+        "B": [-0.5, -0.1],
+        "Y": [0.5, 0.0]
       },
       "pin_numbers": {"A": 1, "B": 2, "Y": 3},
-      "measured_from": "U4:A in BC_pick5.DSN, magnified crop, cross-checked by the wire Isis snapped onto the pin"
+      "pin_numbers_by_unit": {
+        "A": {"A": 1, "B": 2, "Y": 3},
+        "B": {"A": 4, "B": 5, "Y": 6},
+        "C": {"A": 10, "B": 9, "Y": 8},
+        "D": {"A": 13, "B": 12, "Y": 11}
+      },
+      "unit_shapes": "all four units are drawn the same way: two inputs on the left, output on the right",
+      "measured_from": "wire endpoints read out of hand_wire.DSN (hand drawn), wire_ok.DSN and multi.DSN (drawn by scripts/dsn_draw_wires.ps1): U3:A anchor (2.0,1.0) with pin 1 at (1.5,1.1) and pin 3 at (2.5,1.0); U3:B anchor (2.0,-1.0) with pin 4 at (1.5,-0.9) and pin 6 at (2.5,-1.0); U3:C pins 10/9/8 at (-4.5,-1.4)/(-4.6,-1.9)/(-3.5,-1.5); U4:A pin 3 at (2.0,-2.5)",
+      "confidence": "A and Y are measured on three units; B follows from the two symmetric inputs and has not been probed on its own yet",
+      "correction": "an earlier version of this file used offsets measured from a magnified crop (-0.25,0.025 / 0.69,-0.075) and they do not reproduce these wire endpoints - they were relative to a different reference point"
     }
   }
 }

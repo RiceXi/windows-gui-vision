@@ -93,6 +93,20 @@ public class DW {
    return best;
  }
  public static int DismissNotice(uint want, int maxw) {
+   return PressOk(want, maxw);
+ }
+ public static int CountSmall(uint want, int maxw) {
+   int n=0;
+   EnumWindows(delegate(IntPtr h, IntPtr l) {
+     uint pid; GetWindowThreadProcessId(h, out pid);
+     if (pid!=want || !IsWindowVisible(h)) return true;
+     RECT r; GetWindowRect(h, out r);
+     if (r.Right-r.Left < maxw) n++;
+     return true;
+   }, IntPtr.Zero);
+   return n;
+ }
+ public static int PressOk(uint want, int maxw) {
    int done=0;
    EnumWindows(delegate(IntPtr h, IntPtr l) {
      uint pid; GetWindowThreadProcessId(h, out pid);
@@ -197,6 +211,18 @@ function Invoke-ChildInput([int]$sx, [int]$sy, [switch]$Click) {
     & $Pwsh @args2 | Out-Null
 }
 
+function Clear-Dialogs([int]$procId) {
+    # A stray dialog (a double-click on a part opens its properties) swallows every later click and
+    # looks like "the click did nothing". Close it before it can do that, and say so.
+    $left = [DW]::CountSmall([uint32]$procId, 700)
+    if ($left -gt 0) {
+        [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
+        Start-Sleep -Milliseconds 700
+        $left2 = [DW]::CountSmall([uint32]$procId, 700)
+        Write-Output ("  dialog guard: {0} small window(s) -> {1} after ESC" -f $left, $left2)
+    }
+}
+
 $n = 0
 foreach ($w in $wires) {
     $n++
@@ -204,6 +230,11 @@ foreach ($w in $wires) {
     $ax = $a[0] + $adjX; $ay = $a[1] + $adjY
     $bx = $b[0] + $adjX; $by = $b[1] + $adjY
     Write-Output ("wire {0}: ({1},{2}) -> ({3},{4})   screen ({5},{6}) -> ({7},{8})" -f $n, $w[0], $w[1], $w[2], $w[3], $ax, $ay, $bx, $by)
+    # clear any selection first: with a part selected (it draws red) Isis does not start wires at
+    # all, and a stray dialog would swallow the clicks the same way. ESC handles both.
+    [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
+    Start-Sleep -Milliseconds 400
+    Clear-Dialogs $proc.Id
     Click-Point $ax $ay
     if ($CheckFirst) {
         # a started wire is a thin line from the pin to wherever the pointer now is
@@ -223,6 +254,7 @@ foreach ($w in $wires) {
         [DW]::SetCursorPos($ax, $ay) | Out-Null; Start-Sleep -Milliseconds 300
     }
     Click-Point $bx $by
+    Clear-Dialogs $proc.Id
     Start-Sleep -Milliseconds 300
 }
 [DW]::SetCursorPos(1150, 150) | Out-Null; Start-Sleep -Milliseconds 400

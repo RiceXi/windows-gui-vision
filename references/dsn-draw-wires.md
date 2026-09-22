@@ -39,6 +39,20 @@ or after it, never in the middle.
 wire from any mode when the pointer rests on a connection point (the cursor becomes a pencil).
 The plan is a plain hover (about 1.2 s, so the pencil state settles) then a click.
 
+**6. Never click twice in the same place in quick succession.** Two clicks within the double-click
+time - a few hundred milliseconds - count as a double-click on the part, and a part's properties
+dialog opens. Everything sent afterwards goes into that dialog instead of the canvas, which looks
+exactly like "the clicks do nothing" and wastes a lot of time. The two clicks of a wire are far
+apart and the pause between them is over a second, and anything that loops over candidate points
+(`dsn_probe_pins.ps1`) must press ESC between attempts and check that no dialog is left behind.
+
+**7. Clear the selection before every wire.** A part that has been clicked once is selected and
+drawn red, and while that is true Isis will not start a wire from its pins at all - clicking the pin
+of a selected part does nothing. This is the trap that makes a run look like "wiring simply does not
+work": a click that lands on the body instead of the pin selects the part, and every later attempt
+in that run is dead. Both scripts press ESC before each wire or probe for that reason, and the
+same ESC closes a properties dialog if one did open.
+
 ## Evidence
 
 One wire, drawn by the script from U3:C pin 10 to pin 8 on the five gate base:
