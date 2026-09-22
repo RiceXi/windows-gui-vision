@@ -81,3 +81,23 @@ The offsets in the list name the group's wires; whether each entry is the wire's
 body still has to be pinned down by matching the three values against the walk's own body and tail
 offsets (20434 is a tail, 20500 is the body of the wire at 20457, 19455 is the tail of the wire at
 19478 - one of those readings is wrong, and the next pass is to decide which).
+
+### Settled: the entries are the tail block of each wire
+
+Matching all three values against every wire's offsets in the same file:
+
+| entry | what it is | the 15 bytes there |
+| --- | --- | --- |
+| 20434 | the block immediately before the prefix of the wire at 20457 | `00 1d ... 01` |
+| 19455 | the block immediately before the prefix of the wire at 19478 | `00 1d ... 01` |
+| 20500 | the block immediately before the prefix of the wire at 20523 | `00 1d ... 01` |
+
+All three are the same thing: the 15 byte block that sits immediately before a wire's prefix - the
+block my writer already calls the wire's tail, and exactly the offset it uses as the insert point
+for a new wire. The apparent ambiguity was that 20500 is also the end of the points of the wire at
+20457, because two wires in a group sit back to back: the block that one wire's points run into is
+the next wire's tail.
+
+So the rule is complete, and it is short: when a wire is attached to a part, that part's connection
+list gains the offset of the wire's tail block - the position the writer already inserts at - and
+its count goes up by one.
