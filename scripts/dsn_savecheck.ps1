@@ -20,7 +20,13 @@ param(
     [Parameter(Mandatory=$true)][string]$Path,
     [string]$Exe = 'C:\Program Files (x86)\Labcenter Electronics\Proteus 7 Professional\BIN\ISIS.EXE',
     [int]$WaitSeconds = 25,
-    [string]$InputScript = "$PSScriptRoot\proteus_input.ps1"
+    [string]$InputScript = "$PSScriptRoot\proteus_input.ps1",
+    [string]$PlaceScript = "$PSScriptRoot\proteus_place.ps1",
+    [switch]$Modify,
+    [double]$AtX = 3.0,
+    [double]$AtY = 3.0,
+    [int]$ModeButtonX = 37,
+    [int]$ModeButtonY = 133
 )
 
 function Get-Objects([string]$file) {
@@ -40,6 +46,20 @@ $proc = Start-Process -FilePath $Exe -ArgumentList "`"$Path`"" -PassThru
 Start-Sleep -Seconds $WaitSeconds
 & $InputScript -TargetPid $proc.Id -CloseNotices -Focus | Out-Null
 Start-Sleep -Seconds 2
+if ($Modify) {
+    # Isis only rewrites the file when the design is dirty, so an unmodified load cannot be
+    # told apart from a partial one. Dropping one more part in makes the save happen, and the
+    # objects the load kept are then visible in what it writes back.
+    #
+    # Placement only works in Component mode, and Isis remembers the mode between sessions -
+    # a session that was left in Selection mode silently swallows every canvas click, which is
+    # what made this look like a broken script. Click the mode button first: ModeButton* is the
+    # Component Mode icon's screen position (window (25,123) on a window at (12,10)).
+    & $InputScript -TargetPid $proc.Id -CloseNotices -Focus -ClickX $ModeButtonX -ClickY $ModeButtonY | Out-Null
+    Start-Sleep -Milliseconds 800
+    & $PlaceScript -TargetPid $proc.Id -Row 0 -AtX $AtX -AtY $AtY -Keys "^s" | Out-Null
+    Start-Sleep -Seconds 4
+}
 & $InputScript -TargetPid $proc.Id -Keys "^s"
 Start-Sleep -Seconds 4
 Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue

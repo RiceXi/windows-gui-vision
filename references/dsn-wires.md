@@ -74,6 +74,49 @@ Both ground truths came out of the same recipe, which is the one worth reusing:
 
 ## What the load tests say
 
+### A wire that touches nothing is not a wire
+
+The most useful thing the acceptance test taught is why generated designs degrade. Measured on
+the five-instance base, with `dsn_savecheck.ps1 -Modify` (open, drop one more part in so Isis
+actually writes, save, compare the object list):
+
+| build | what Isis wrote back |
+| --- | --- |
+| base design, nothing added | whole: 6/6 wires, 7/7 references, plus the part I dropped in |
+| four appended instances, no wires | whole: 11/11 references, plus the dropped-in part |
+| one appended wire, both ends in empty canvas | **the wire is gone**; the save has the base's six wires and one other |
+| three appended wires | **partial**: only U1, U2, U3:A survive, 16505 bytes |
+| four instances plus four wires (the latch) | **partial**: same stop point, U1, U2, U3:A |
+
+The reading: Isis drops a wire whose endpoints are not connection points, and that is not an
+edge case here - it is what the generated designs were full of. Reading `Wiring_Up.htm` from
+the application's own help (see below) says it outright: *a connection point can connect to
+precisely one wire*, wires start and end on connection points, and there is no wire mode to
+draw a free one.
+
+So the rule for the writer is not "put the points where you want the copper", it is "put the
+ends on connection points". Where the pins actually are has to be measured per unit, and the
+first measurement says the offsets in `pin_tables.json` are about 0.1 inch off: probing the
+part Isis placed itself in the control design found a live connection point at
+anchor + (-0.25, +0.125), where the table says (-0.25, +0.025). Wires written to the table's
+coordinates do not touch the pin. That measurement needs finishing before the pin tables can
+be trusted.
+
+### There is no wire mode
+
+Straight out of `GENERAL_CONCEPTS/Wiring_Up.htm` in the bundled help, and it explains months of
+misunderstandings: *"You may have noticed that there is no Wire icon. This is because ISIS is
+intelligent enough to detect automatically when you want to place a wire."* You move the
+pointer over a connection point until the cursor turns into a green pencil, click to start,
+click another connection point to commit. Consequences that matter for automation:
+
+* there is no toolbar button to select, so a click on the canvas is the only way to draw;
+* a click on empty canvas does nothing at all, which is why the first attempts "drew" nothing;
+* a pin or terminal end takes exactly one wire; a wire's body is a connection point all along
+  its length, and ISIS adds a junction dot where a third wire meets;
+* because a wire can only start and end on connection points, an injected gesture needs two
+  real connection points - a pin pair, or a pin and a wire.
+
 Two tests, and the weak one has to come first because it is the cheap one:
 
 * `scripts/design_loadcheck.ps1` - does Isis accept the file. Exit 0 yes, 1 silently refused, 2

@@ -31,7 +31,9 @@ param(
     [double]$AnchorDY = 0.208,
     [int]$ClickGapMs = 1000,
     [string]$Keys = "",
-    [int]$NoticeWidth = 700
+    [int]$NoticeWidth = 700,
+    [int]$ModeButtonX = 37,
+    [int]$ModeButtonY = 133
 )
 
 $sig = @'
@@ -50,6 +52,13 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $input = Join-Path $here 'proteus_input.ps1'
 & $input -TargetPid $TargetPid -CloseNotices -Focus -NoticeWidth $NoticeWidth
 Start-Sleep -Milliseconds 800
+
+# Placement only works in Component mode, and Isis remembers the mode between sessions. Left in
+# Selection mode, a session silently swallows every canvas click and the placement looks like a
+# broken script - which is what it looked like for a long time. ModeButton* is the Component Mode
+# icon at screen coordinates for a window at (12,10) with the default (1416x832) size.
+& $input -TargetPid $TargetPid -Focus -ClickX $ModeButtonX -ClickY $ModeButtonY | Out-Null
+Start-Sleep -Milliseconds 700
 
 $rowY = [int][Math]::Round($FirstRowY + $Row * $RowPitch)
 Write-Output ("selecting list row {0} at window y {1}" -f $Row, $rowY)

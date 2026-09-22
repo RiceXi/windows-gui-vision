@@ -71,6 +71,14 @@ the placement failed when it has not started.
 `scripts/proteus_place.ps1` does it from a design coordinate. Measured details, all of which
 cost time to find:
 
+* **the design has to be in Component mode (器件) or nothing happens.** Isis remembers the
+  mode between sessions, so a directory left in Selection mode swallows every canvas click and
+  placement looks like a broken script. The symptom is indistinguishable from a bad click:
+  no error, no ink, no record. `proteus_place.ps1` now clicks the Component Mode button first
+  (screen (37,133) for a window at (12,10), 1416x832); the mode is also visible in the status
+  bar, which reads 器件 in Component mode and 选择模式 in Selection mode - OCR that if a click
+  seems to be going nowhere;
+
 * the row has to be hit in the text, not the panel. At window coordinates, a click near
   (60..80, 212) lands on the buttons above the list and opens Pick Devices or the Devices
   Libraries Manager instead; row 0 is at about (72, 220) with a 13 pixel pitch below it;
