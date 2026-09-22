@@ -349,6 +349,15 @@ of the entry list the parser finds. So there is a second structure near the dire
 new entries belong to, and finding it is the next concrete step. The script says as much at the
 top of the file.
 
+That paragraph was written after the first attempt. Two fixes since: each pin pair in the entry
+is a length-prefixed key *and* a length-prefixed value (`01 41 02 31 30` is "A" then "10"), and a
+unit entry ends with three zero bytes rather than five. With those, the script's file comes out
+the same size as ISIS's, the records carry the same coordinates, the entries are the same
+length, and the diff is down from 970 bytes to 109 in 27 runs, all inside the object area. ISIS
+still rejects it, so what is left is structural rather than a field value - most likely the
+point at which the new record is inserted or the order objects end up in. The two files to
+compare are `BB_pick3.DSN` (before) and `BC_pick5.DSN` (ISIS after five placements).
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 

@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 """Add another instance of a device the design already embeds, by writing the file.
 
-**Status: not accepted yet.** The field values this produces agree with ISIS's own output -
-name, id, sequence, unit counter, pin map all match - but ISIS rejects the file on load, so the
-directory entry is still going in the wrong place or at the wrong length. Measured: for two
-placements ISIS inserts 65 bytes of entry where this writes 59, and its insert lands some 240
-bytes earlier in the file than the end of the entry list this parser finds. Kept because the
-rules below are right and the remaining gap is narrow; do not use it on a design you need.
+**Status: not accepted yet.** Two placements with this script produce a file of exactly the
+right size, with the records at the right coordinates, the same names, ids, sequences, unit
+counters and pin maps, and entries of the same length as ISIS's own - and ISIS still rejects it
+on load. A byte diff against ISIS's file comes to 109 bytes in 27 runs, all of them inside the
+object area, which reads like an ordering or insertion-point difference rather than a field
+value. Kept because every rule below is measured and the remaining gap is small; do not use it
+on a design you need.
 
 Measured against ISIS 7.08 SP2, which is fussier here than anywhere else in this folder. Placing
 the same device five times in a row gave five samples to copy, and every field turned out to
@@ -67,12 +68,17 @@ def entries(d, count_off):
                 p = tail_start + 4
                 ok = True
                 for _ in range(per_unit):
+                    # each pair is [len key][key][len value][value]
+                    if p >= len(d) or not (1 <= d[p] <= 4):
+                        ok = False
+                        break
+                    p += 1 + d[p]
                     if p >= len(d) or not (1 <= d[p] <= 4):
                         ok = False
                         break
                     p += 1 + d[p]
                 if ok:
-                    tail_len = 4 + (p - tail_start - 4) + 6
+                    tail_len = 4 + (p - tail_start - 4) + 3
         out.append((o, eid, seq, name.decode("latin1"), d[tail_start:tail_start + tail_len]))
         o = tail_start + tail_len
     return out
@@ -159,14 +165,18 @@ def append_instance(base, device, x, y, out=None):
         t = bytearray(struct.pack(">HH", unit_counter, len(pins)))
         for key, nums in pins:
             s = str(nums[unit_no - 1])
+            t += bytes([len(key)]) + key.encode()
             t += bytes([len(s)]) + s.encode()
-        tail_bytes = bytes(t) + b"\x00" * 6
+        tail_bytes = bytes(t) + b"\x00" * 3
 
     off_hit = d.find(struct.pack("<I", tail), tail)
-    # the entry list ends where the next section starts, marked by a length-prefixed string
-    anchor = d.find(b"\x08#@CX0000", root)
-    if anchor < 0:
-        raise SystemExit("cannot find the end of the directory entry list")
+    # The new entry goes after the last existing one. Anchoring on a marker like `#@CX0000`
+    # looks right and is wrong: that one sits before ROOT1, so the entry lands in the middle of
+    # the directory and ISIS rejects the file. The earlier scripts got away with it because in
+    # those designs the last entry happened to be a graphic, whose five-byte tail the old
+    # anchor could compute.
+    last = ens[-1]
+    anchor = last[0] + 8 + len(last[3]) + len(last[4])
     d[tail - 1] = 0x00
     d[tail:tail] = bytes(rec)
     struct.pack_into("<I", d, head - 4, tail + len(rec) + 48)
