@@ -288,6 +288,22 @@ Beyond that, the fastest unblock is a single hand-drawn reference: open the base
 wire by hand, save and close. That gives a file where the wire is known to be real, and it tells
 us at once whether the blocker is the automation or this copy of Isis.
 
+#### Where Isis keeps its settings (checked, nothing to flip)
+
+If the wire click depends on snap, flipping snap would be the fix, so the obvious places were
+checked. There is no Isis 7 configuration file to edit: `%APPDATA%\Labcenter Electronics` holds
+only Proteus 8 installer payload, `%LOCALAPPDATA%\Labcenter Electronics\Proteus` holds simulation
+result PDFs and a report log, the install directory has only `PROPDEFS.INI` and `PWRRAILS.INI`,
+and `HKCU:\Software` has no Labcenter key. Whatever holds this build's editor settings, it is not
+one of those, so snap cannot be flipped from the file side.
+
+That leaves two ways to get unstuck, and they are independent: the file format question - what
+attaches an instance to its symbol and pins, which the append notes left open and which is pure
+file analysis - or one hand-drawn reference wire, which separates "my automation cannot draw"
+from "this copy of Isis will not draw" in a single step. The second one needs a person at the
+mouse for about twenty seconds: open the base design, draw one wire between two of the junction
+dots, save, close.
+
 The most useful thing the acceptance test taught is why generated designs degrade. Measured on
 the five-instance base, with `dsn_savecheck.ps1 -Modify` (open, drop one more part in so Isis
 actually writes, save, compare the object list):
