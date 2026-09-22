@@ -141,6 +141,28 @@ own symbol records use - `NAND_2`, not `74LS00` - and then re-run the pin probe.
 generated part in this design currently names `74LS00`, so none of them can be expected to be
 wireable, whichever route put them there.
 
+#### Renaming alone does not do it, and the real difference is the base design
+
+Tried: every `74LS00` device reference in the instances-only build rewritten to `NAND_2`, in
+place so nothing moved (19 occurrences, file still 23396 bytes, still loads). The pin probe in
+Selection mode then found nothing on the renamed part either - same 14 candidate points around
+the symbol, all zero. So the identifier is not what makes the connection points appear; it is
+consistent with the append notes, where renaming only changed the drawing and never produced a
+part that could be wired.
+
+The pattern that is left, and it is a hypothesis rather than a measurement: this base design was
+cut down from a Labcenter sample, and *its* embedded definitions are the sample's - the symbol
+records are `NAND2` / `NAND_2`. Parts added from the current library name `74LS00`, so they
+resolve against a definition the design does not carry and become stand-ins. The designs that
+behave properly are the ones a person built in Isis: the experiment-1 schematic was made by
+picking devices and placing them, and everything in it wires up.
+
+That is the next test, and it needs one Pick Devices pass rather than any new code: take an
+empty design, add 74LS00 through Pick Devices so the design embeds the *current* definition,
+place a part with `proteus_place.ps1` (Component mode, which is now reliable) and probe its
+pins. If those answer, the rule for the whole skill becomes: build on a design that was created
+this way, and the part-adding and wire-drawing half falls into place.
+
 The most useful thing the acceptance test taught is why generated designs degrade. Measured on
 the five-instance base, with `dsn_savecheck.ps1 -Modify` (open, drop one more part in so Isis
 actually writes, save, compare the object list):
