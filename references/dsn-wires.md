@@ -259,6 +259,35 @@ reliable sequence is: launch, list the windows, close the notice, list them agai
 the main window is visible, then click a point that is both a connection point and outside where
 the notice used to be.
 
+#### Five attempts, no wire - the gesture does not work in these sessions
+
+Run with the sequence above, in Component mode, with the notice window verified closed:
+
+| attempt | result |
+| --- | --- |
+| mid-wire (0.65, 0.80) to mid-wire (1.05, 0.80) | no wire, 21588 bytes unchanged |
+| the same, slow two-step with a pointer move between clicks | no wire |
+| mid-wire (1.30, 0.80) to (0.85, 0.80), both outside the notice rectangle | no wire |
+| the same with a warm-up click first, in case the first click was eaten by activation | no wire |
+| the documented probe recipe: 9 candidates around (0.7, 0.8), finishing on (0.7, 0.8) | no wire |
+| the pair Isis itself drew in this design's history: (0.70, 0.80) to (0.70, -0.30) | no wire |
+
+Injected input does reach the application: a placement through `proteus_place.ps1` adds exactly
+one 451 byte record, the mode buttons change the panel, list rows select. So the failure is
+specific to wire placement, and after six attempts with the known confounds removed it is not a
+coincidence.
+
+The most plausible remaining mechanism is the one the coordinate notes already lean on: Isis
+snaps a pointer that is within a few pixels of a connection point onto it, and every attempt here
+depends on that snap engaging. If snap is not engaging in these sessions, a click a few pixels
+away lands on empty canvas and does nothing at all - which is exactly what is observed, and
+would also explain why the previous session (where one wire was produced) could do it. Checking
+and turning snap on is the next cheap thing to try, before any more conclusions about pins.
+
+Beyond that, the fastest unblock is a single hand-drawn reference: open the base design, draw one
+wire by hand, save and close. That gives a file where the wire is known to be real, and it tells
+us at once whether the blocker is the automation or this copy of Isis.
+
 The most useful thing the acceptance test taught is why generated designs degrade. Measured on
 the five-instance base, with `dsn_savecheck.ps1 -Modify` (open, drop one more part in so Isis
 actually writes, save, compare the object list):
