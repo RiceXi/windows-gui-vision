@@ -163,6 +163,28 @@ place a part with `proteus_place.ps1` (Component mode, which is now reliable) an
 pins. If those answer, the rule for the whole skill becomes: build on a design that was created
 this way, and the part-adding and wire-drawing half falls into place.
 
+#### Naming is closed: three variants, no pins in any of them
+
+The identifier hypothesis is now tested properly, by rewriting the added parts' records to match
+the design's own pattern - `NAND2` as the device id and `NAND_2` as the symbol reference, the
+same pair the working U1/U2 records carry (9 instances, both fields, in place, file still 23396
+bytes and still loads) - and then probing in Selection mode. Sixteen candidate points around the
+symbol: all zero. Together with the earlier `NAND_2`-only and untouched-`74LS00` runs that is
+three variants, no connection points in any of them.
+
+So the identifier is not the link. That leaves the conclusion the append notes reached by
+elimination: whatever attaches an instance to its symbol and its connection points is not
+carried in the record at all - it is either an offset the insertion moved or a side table only
+Isis maintains - and a part that has to be wireable must be created by the application rather
+than written into the file.
+
+The one thing still not separated is *hand* placement from *injected* placement: the designs in
+this account that wire up were built by a person clicking, and every part built by automation -
+appended or placed - has come back unwireable. The next attempt is to make the injected
+placement look like a hand one (move the pointer first so a preview is following it, click once
+to drop, then a slow second click), and if that changes nothing, a single hand-placed reference
+part is what settles it.
+
 The most useful thing the acceptance test taught is why generated designs degrade. Measured on
 the five-instance base, with `dsn_savecheck.ps1 -Modify` (open, drop one more part in so Isis
 actually writes, save, compare the object list):
