@@ -81,6 +81,10 @@ shell loops. `SKILL.md` and the reference files are what an agent reads; you can
   their meaning is not pinned down yet, so they have to be found by measuring one hand-drawn
   wire first. Everything else about a generated wire is automatic - see
   `references/dsn-wires.md`.
+- Creating a part from a script. An appended part loads and keeps its reference designator, but
+  no symbol is drawn and it has no pins, so it cannot be wired into anything - including when
+  the record comes from the same design. `references/dsn-append.md` has the recipe and the
+  three measurements that show exactly where it stops, and the ink subtraction that catches it.
 
 ## License
 

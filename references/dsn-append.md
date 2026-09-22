@@ -2,6 +2,13 @@
 
 Measured on ISIS 7.08 SP2, build 10468, September 2026. `scripts/dsn_append.py` implements it.
 
+**Correction, same month: the part this adds is a phantom.** It loads, it has a reference
+designator, ISIS saves it, and the file passes every check on this page - but no symbol is
+drawn and the part has no pins, so it cannot be wired into anything. The evidence is at the
+bottom of this file. The recipe below is still exactly what ISIS does when it writes an
+appended instance, and it is still useful for editing an existing instance; it is not enough to
+create a usable one.
+
 This supersedes the "adding a component" section of [dsn-generate.md](dsn-generate.md). That
 section describes what the edit does to the bytes and it is accurate, but the edit it
 describes produces files ISIS refuses to load. Four of the five bookkeeping steps were right;
@@ -100,3 +107,26 @@ you want.
 The wiring is the part that still needs the GUI, which is also where the GUI is least
 painful - clicking from pin to pin is what it is good at, and a misplaced wire is obvious on
 screen in a way a corrupted file is not.
+
+## Why the added part is a phantom
+
+Three measurements, in the order they were taken:
+
+1. Capture the design with and without the appended part and subtract. The appended part adds
+   35 pixels of ink, all of it in a 14x9 box where its reference designator sits: the label is
+   drawn and nothing else. A part ISIS places itself adds around 350 - the symbol outline.
+2. Try to start a wire on it. A probe walked 195 grid points over the part at 0.1 inch spacing,
+   clicking each and then clicking a pin known to work. Not one produced a wire, so the part
+   has no connection points either.
+3. Clone the record of a part ISIS placed itself in the *same* design, changing only the
+   reference and the coordinates. That clone is a phantom too: 35 pixels of ink, label only.
+
+Step 3 is the interesting one. The clone is byte-identical apart from two fields, its definition
+is in the same file, and the original still draws. So the graphics are not carried in the
+record: whatever links an instance to its symbol is either an offset that the insertion moved,
+or a side table that only ISIS maintains. Until that is found, a part that has to be visible and
+wireable has to be placed by the application.
+
+The cheap check for any generated object is the one used above: capture the window, capture it
+again with the object in the design, and subtract. Ink where the object should be means it is
+really there; a label on its own means a phantom.
