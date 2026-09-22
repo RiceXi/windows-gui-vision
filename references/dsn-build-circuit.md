@@ -46,6 +46,20 @@ wire and ISIS opened the result: 6 instances, 9 wires, 22121 bytes. The instance
 byte-identical to ISIS's own; the wire edit differs from ISIS's by 8 bytes of counters and flags.
 A wire written to a measured pin position came back as a wire ISIS kept after saving.
 
+`scripts/dsn_build_circuit.py` does those steps in order from one json file:
+
+```
+python scripts/dsn_build_circuit.py --base design.DSN --spec circuit.json --out built.DSN
+```
+
+with `circuit.json` holding `parts` (device and anchor) and `wires` (point lists). Run against the
+five-instance design with two more instances and a wire between the first one's output and the
+second one's input - positions taken from the pin offsets measured earlier, output at anchor plus
+`(0.69, -0.075)`, input at anchor plus `(-0.25, 0.025)` - it produced 22557 bytes, ISIS opened it,
+and after saving from inside ISIS the file still held all seven instances (`U3:A` through `U4:C`)
+and nine wires. That is the whole path: a description of a circuit in, a design ISIS accepts and
+keeps out.
+
 ## What is not solved
 
 Reading a device's pin geometry out of its definition block. The block carries the symbol outline
