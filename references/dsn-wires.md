@@ -76,6 +76,33 @@ Both ground truths came out of the same recipe, which is the one worth reusing:
 
 ### A wire that touches nothing is not a wire
 
+#### Where the pins are is the real blocker (measured)
+
+The generated wires miss the pins, and the pin table is why. Two probes on a part ISIS placed
+itself, and one on a part the script appended:
+
+| what was probed | result |
+| --- | --- |
+| placed part, grid over the symbol | exactly one live connection point, at anchor + (-0.25, +0.125) |
+| the same point +-0.05 inch | nothing (the connection point is genuinely local) |
+| appended part, 48 point grid around the symbol | no connection point at all |
+| click on the live pin, then on the predicted sibling pin, save | no wire commits, file unchanged |
+
+So the appended part draws its symbol and refuses to be wired: the file route can add *parts*
+that look right and cannot be connected to anything, which is exactly the "phantom" the
+append notes already warned about. Two consequences:
+
+* `pin_tables.json`'s offsets are about 0.1 inch off in y for the unit measured, so they have to
+  be re-measured per unit before any generated net can land on a pin;
+* a wire needs *two* live connection points, and finding them means probing, one candidate at a
+  time. Probing is what `proteus_probe_pins.ps1` does; the rubber-band check used here (click a
+  candidate, move, capture twice, subtract) is a cheaper filter that found the same pin.
+
+The practical route for a *wired* circuit is therefore parts placed by ISIS (which does answer
+at its pins) plus wires drawn by ISIS gestures, with `dsn_savecheck.ps1 -Modify` deciding
+whether the result is real. The file writer stays useful for what it is verified to do:
+appending instances to an existing design and one or two wires, nothing that has to connect.
+
 The most useful thing the acceptance test taught is why generated designs degrade. Measured on
 the five-instance base, with `dsn_savecheck.ps1 -Modify` (open, drop one more part in so Isis
 actually writes, save, compare the object list):
