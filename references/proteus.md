@@ -179,6 +179,25 @@ That `U1:A` is worth a second look: 74LS00 is a four-unit device, and the unit i
 name. The next thing to try is a single-unit part - a resistor - to see whether the unit is what
 the drop is waiting on.
 
+Tested, and it is not the unit: a resistor from Pick Devices behaves the same way - loaded, the
+symbol follows the pointer, and the click does not drop it. Four ways of dropping were tried
+against a fresh design and none of them changed the file at all (6925 bytes, no part records):
+
+* one left click on the sheet;
+* two left clicks a second apart;
+* click, move the pointer slightly, then Return;
+* move onto the sheet and press Return without clicking.
+
+Each attempt leaves between 148 and 193 pixels of ink on the canvas that the empty design does
+not have - the ghost of the loaded device, drawn where it was left - and the sheet area is not
+the issue: the border was located at window x 288..1278, y 99..786 and both click points are
+well inside it.
+
+The next variable is the mode. Placing is a component-mode action, and the help is explicit
+that a design left in selection mode ignores them; the mode buttons are the icon column on the
+left, and which one is active can be read from the pressed state. Check that before trying the
+drag variant (press, move, release), which is the one drop method not yet tried.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
