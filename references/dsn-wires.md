@@ -59,6 +59,12 @@ same six points: `(0.7, 0.8) (0.7, 0.9) (0.8, 0.9) (0.8, -0.4) (0.7, -0.4) (0.7,
 normalises the file on save - 18515 bytes became 18467 - but it kept the wire, which is the
 acceptance test that matters.
 
+It is also really drawn, not just recorded. Subtracting a capture of the design without the
+wire from one with it leaves 163 pixels of ink in a box spanning design x 0.62..0.72, y -0.29..0.99
+- the route, to scale. The same check on an appended *part* finds 35 pixels, all of them the
+reference designator; that difference is what separates a real object from a phantom one, and
+it is worth running on anything a script writes.
+
 ## The one thing still manual
 
 The two link fields have to be pointed at with `--link <offset>`. Their meaning is not pinned
