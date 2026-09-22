@@ -455,6 +455,25 @@ end on. For a part the design already had, they come from the wires that are alr
 part the script just placed, they have to be measured once per device - a magnified crop reads
 the pin stubs well enough - or taken from the device's symbol.
 
+### Wiring a scripted part
+
+That last step was tried with the pin position a magnified crop had given for one of the
+scripted instances, `(0.942, -2.270)` for U4:A's input, run through the wire writer back to a pin
+the sample design already had. ISIS opened the design, and after saving from inside ISIS the
+file holds **one more wire record than before** (raw `WIRE` markers 8 → 9) with the file
+normalised to 21606 bytes - so the wire the script wrote is a wire ISIS keeps.
+
+One caution for anyone re-parsing that file: after an ISIS save the records no longer answer the
+same "point count at +9" test that works on the file before it is opened (valid count 6 → 0
+while raw markers went 8 → 9). Compare against the pre-save file, or re-derive the record
+walking, rather than concluding the wires vanished.
+
+So the whole path is open now: instances of every device the design embeds, wires between
+coordinates, and a design ISIS loads and re-saves with all of it intact. What is left is
+per-device bookkeeping - a table of pin offsets for the devices a circuit needs, measured once
+each the way U4:A's was - and the device definitions themselves, which a design has to carry
+before any of this applies.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
