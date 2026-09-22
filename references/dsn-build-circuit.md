@@ -81,6 +81,28 @@ measuring it once and adding six numbers; after that, circuits can be written in
 and pins rather than coordinates. The routing is a single midpoint bend, which is fine for the
 stub in the example and not a replacement for a real router.
 
+## A second wire in one file still crashes
+
+A build with four instances and four nets came back as a crash rather than a design, and the
+isolation is clean:
+
+| build | result |
+| --- | --- |
+| four instances, no wires (which crosses into a new package, `U5:A`) | loads |
+| four instances, one wire | loads |
+| four instances, two wires well apart | crashes |
+| four instances, four wires | crashes |
+
+So instances are fine and one wire is fine; the second wire is where it goes wrong. The log says
+why: both wires report `inserted_at 14864`, the same offset, so the second insertion is looking
+for the live tail block and finding the one the first insertion already consumed, then writing
+into what the first wire owns. `dsn_add_wire.py` handles one wire correctly - that is what was
+verified against ISIS's own output - and chaining it is the missing piece.
+
+Until that is fixed, `dsn_build_circuit.py` is reliable for instances and for a single wire. Two
+workarounds: run one wire per design and merge afterwards, or write the wires from the editor
+after the parts are placed, which the instance side makes cheap.
+
 ## What is not solved
 
 Reading a device's pin geometry out of its definition block. The block carries the symbol outline

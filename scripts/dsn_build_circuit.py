@@ -99,13 +99,15 @@ def build(base_path, spec, out_path, pins_path):
         for a, b in zip(points, points[1:]):
             wires.append({"points": route(a, b)})
 
-    if wires:
+    for w in wires:
+        # The link offsets move with every insertion, so find them per wire. Looking them up once
+        # and reusing the list puts the second wire's patches inside the first one, and ISIS
+        # crashes on the result.
         head = data.find(MARKER)
         tail = data.find(MARKER, head + 1)
         links = [off for off, _cnt, _offs in find_link_fields(data, head, tail)]
-        for w in wires:
-            data, info = add_wire(data, [tuple(p) for p in w["points"]], links)
-            steps.append("wire of %d points at %s" % (len(w["points"]), info["inserted_at"]))
+        data, info = add_wire(data, [tuple(p) for p in w["points"]], links)
+        steps.append("wire of %d points at %s" % (len(w["points"]), info["inserted_at"]))
 
     open(out_path, "wb").write(data)
     return data, steps
