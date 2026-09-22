@@ -89,22 +89,33 @@ def entry_anchor(d, count_off):
     return last if last is not None else count_off + 1
 
 
-def append(base, record, ref=None, out=None):
-    """Return (bytes, info). ref None means an unnamed object such as a wire."""
+def append(base, record, ref=None, out=None, ref_field_len=2, entry_tail=None):
+    """Return (bytes, info). ref None means an unnamed object such as a wire.
+
+    ref_field_len is how many bytes the record keeps its reference in: 2 for the parts a design
+    from an older library carries (`FF 02 U1`), 4 for the ones the current library writes for a
+    multi-unit device (`FF 04 U3:A`).
+
+    entry_tail is what goes after the name in the directory entry. Most objects have five zero
+    bytes there; a multi-unit device carries a unit and pin map instead
+    (`01 00 03 00 01 41 01 31 ...` for 74LS00), and without it the instance has no symbol.
+    """
     d = bytearray(base)
     head = d.find(MARKER)
     tail = d.find(MARKER, head + 1)
     if min(head, tail) < 0:
         raise SystemExit("not an ISIS design file: no ISIS CIRCUIT FILE markers")
     if ref is not None:
-        if len(record) < 12 or record[:2] != b"\xff\x02":
-            raise SystemExit("a named record starts with FF 02 <two-character reference>")
-        if len(ref) != 2:
-            raise SystemExit("the reference must be two characters; record sizes cannot change")
+        if len(record) < 12 or record[0] != 0xFF or record[1] != ref_field_len:
+            raise SystemExit("a named record starts with FF %02X <reference of %d characters>"
+                             % (ref_field_len, ref_field_len))
+        if len(ref) != ref_field_len:
+            raise SystemExit("the reference must be exactly %d characters; record sizes cannot "
+                             "change" % ref_field_len)
 
     rec = bytearray(record)
     if ref:
-        rec[2:4] = ref.encode()
+        rec[2:2 + ref_field_len] = ref.encode()
 
     off_hit0 = d.find(struct.pack("<I", tail), tail)
     if off_hit0 < 0:
@@ -134,8 +145,9 @@ def append(base, record, ref=None, out=None):
     if ref is not None:
         count = d[count_off]
         d[count_off] = count + 1
+        tail = b"\x00" * 5 if entry_tail is None else entry_tail
         entry = (struct.pack(">HHH", new_id, count + 1, 0) + b"\x00"
-                 + bytes([len(ref)]) + ref.encode() + b"\x00" * 5)
+                 + bytes([len(ref)]) + ref.encode() + tail)
         d[anchor:anchor] = entry
         struct.pack_into("<H", d, head + 19, new_id + 1)
 

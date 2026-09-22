@@ -233,6 +233,46 @@ produces a design ISIS opens (`AN_idfix.DSN`), but the ink subtraction still fin
 pixels against the base, a label and nothing else. So the graphics are not keyed on that field
 either, and the search continues from there.
 
+### What a design embeds, and why appended parts were phantoms
+
+Diffing a design before and after placing a device that Pick Devices had just added shows what
+the application writes, and it is more than an instance:
+
+* a **739-byte definition block** in the header, holding the device name and a `02 7F COMPONENT`
+  object - the symbol;
+* a **PINOUT block**, plain text: `PINOUT 74LS00 / ELEMENTS=4 / PINS=14 / IP A = 1,4,10,13 /
+  IP B = 2,5,9,12 / OP Y = 3,6,8,11 / PP (VCC) = 14 / PP (GND) = 7 / PINSWAP=A,B /
+  GATESWAP=TRUE`;
+* the instance record, `FF 04 U3:A ...` with `COMPONENT ID = 74LS00` and the coordinates at
+  offset 6 rather than the 4 of an older two-character reference.
+
+That is the explanation for the phantom parts: an appended record only says *who and where*,
+and a design can only draw a part whose definition it embeds. Appending a record for a device
+the design has never held cannot work, whatever else is patched.
+
+Placing into a design that already has the definition does work: the placed 74LS00 adds 1347
+bytes and 563 pixels of ink at the coordinates asked for.
+
+### The directory entry carries a unit and pin map
+
+Cloning that instance - same record, reference `U3:A` to `U4:A`, coordinates moved - gives a
+design ISIS opens, but the clone draws as a label again. The difference is in the directory:
+ISIS's entry for the multi-unit part reads
+
+```
+00 10 | 00 03 | 00 00 | 00 | 04 "U3:A" | 01 00 03 00 01 41 01 31 01 42 01 32 01 59 01 33 | 00 x 6
+                                          ^ two fields          ^ "A"->"1"  "B"->"2"  "Y"->"3"
+```
+
+and the appended entry, written with the five zero bytes most objects get, has none of it. This
+is what `dsn_append.py`'s `entry_tail` parameter is for. Passing the map through did not by
+itself make the clone load, so the id and sequence fields in that entry are still suspect - the
+ground truth is two entries in one file, `AQ_pick.DSN` (ISIS's own) and `AU_entry.DSN` (ours,
+rejected on load).
+
+One more measurement for whoever picks this up: probing the drawn 74LS00 at the edges of its
+ink bounding box found no connection points, so its pins are not at the ends of that box.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
