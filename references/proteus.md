@@ -414,6 +414,23 @@ it is to draw one wire on a fresh part by hand, save, and read the coordinates I
 are that part's pin positions, measured rather than guessed, and after that the wire writer can
 be pointed at them.
 
+That test was run. A magnified crop located U4:A's pin stubs - the symbol is even labelled 1, 2
+and 3 - and clicking exactly at them still produced no wire, so the hypothesis holds: bare pins
+ignore a synthetic click, wired connection points do not.
+
+The wire *writer* is the way round it, but it is not general yet either. Pointed at
+`BR_replica5.DSN` it produced a design ISIS crashes on, with the two-byte link fields from the
+design it was verified in and again with no link fields at all, so the insertion recipe does not
+transfer as written. Its own `--find-links` does find this design's candidates (14487 and 14686),
+so the offsets are knowable; what has not been re-verified is the live tail block the recipe
+moves, which is the part most likely to differ between designs.
+
+So the state of the two halves is: parts, byte exact and verified; wires, verified in one design
+and needing the same ground-truth treatment for the next one. Getting that ground truth means
+drawing one wire by hand in a design that already has the new parts, which works as long as the
+wire starts and ends on existing connection points - the sample design's own pins are good for
+that.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
