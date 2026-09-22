@@ -137,6 +137,28 @@ use the older identifier. Two ways out, both to be tried next:
 * or use Pick Devices on an older design to add the device again, which embeds the definition
   that goes with the current library.
 
+### Starting from a fresh design, what works so far
+
+Following that first road, step by step, on this install:
+
+1. launching `ISIS.EXE` with no argument opens `UNTITLED`, and its DEVICES list is empty;
+2. the accelerator for Pick Devices is the letter `p`, and it only arrives if the window's
+   input language is English. Sending `p` with a Chinese IME in place produced a 53x33
+   `CiceroUIWndFrame` instead of the dialog. `PostMessage(hwnd, WM_INPUTLANGCHANGEREQUEST,
+   0, LoadKeyboardLayout("00000409", 1))` fixes it for that window;
+3. in Pick Devices, the keyword box is at window (150, 45), results start at (194, 77) with a
+   pitch near 14 pixels, and typing a name then pressing Return accepts the highlighted device.
+   Searching `74LS00` and confirming put `74S00` in the design's DEVICES list;
+4. File, Save As with `%f` then `a`, typing the path without an extension and pressing Return
+   wrote the design - `fresh1.DSN`, 6925 bytes, title changing to `fresh1 - ISIS Professional`.
+
+What does not work yet: placing that device into the fresh design. Clicking its row selects it -
+the preview pane changes by ~900 pixels of ink - but the two canvas clicks then change nothing
+and the selection reverts, so the file stays at 6925 bytes with no parts in it. The same two
+clicks place a part in the older design, so it is not the click injection or the coordinates.
+Next: try a different spot and a different gap between the clicks, and watch the preview pane
+between them rather than only before and after.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
