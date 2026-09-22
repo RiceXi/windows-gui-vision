@@ -3,12 +3,19 @@
 """Add another instance of a device the design already embeds, by writing the file.
 
 **Status: not accepted yet.** Two placements with this script produce a file of exactly the
-right size, with the records at the right coordinates, the same names, ids, sequences, unit
+right size, with the records at the right anchors, the same names, ids, sequences, unit
 counters and pin maps, and entries of the same length as ISIS's own - and ISIS still rejects it
-on load. A byte diff against ISIS's file comes to 109 bytes in 27 runs, all of them inside the
-object area, which reads like an ordering or insertion-point difference rather than a field
-value. Kept because every rule below is measured and the remaining gap is small; do not use it
-on a design you need.
+on load, quietly. What is left is 67 bytes in 23 runs, in two places:
+
+* a record stores the point that was *clicked* as well as the anchor it ends up with, about 380
+  bytes further in. Rewriting it as plain coordinates makes ISIS crash instead of reject, so it
+  is not the simple pair it looks like and the script deliberately leaves it alone;
+* the entry's unit counter is written big-endian by this script while ISIS's own entries read
+  little-endian in that field - flipping it also turned the rejection into a crash, so it is
+  left as is pending a proper look.
+
+Do not use this on a design you need. The rules below are all measured and are what the next
+attempt should start from.
 
 Measured against ISIS 7.08 SP2, which is fussier here than anywhere else in this folder. Placing
 the same device five times in a row gave five samples to copy, and every field turned out to
@@ -154,7 +161,29 @@ def append_instance(base, device, x, y, out=None):
 
     rec = bytearray(rec)
     rec[2:2 + len(src_name)] = name.encode()
-    struct.pack_into("<ii", rec, 6, int(round(x * UNITS)), int(round(y * UNITS)))
+    # The instance's position is written three times inside the record - once in the header at
+    # +6 and again in each of the COMPONENT ID and COMPONENT VALUE blocks - so patch every
+    # occurrence of the template's own pair, not just the first.
+    old_x, old_y = struct.unpack_from("<ii", rec, 6)
+    new_x, new_y = int(round(x * UNITS)), int(round(y * UNITS))
+    # A record also remembers the point that was clicked when it was placed, which sits a fixed
+    # distance from the anchor: clicking stored the part 0.308 in right and 0.208 in below.
+    click_dx, click_dy = int(0.308 * UNITS), int(-0.208 * UNITS)
+    patched = 0
+    i = 0
+    while i <= len(rec) - 8:
+        vx = struct.unpack_from("<i", rec, i)[0]
+        if vx == old_x:
+            by = struct.unpack_from("<i", rec, i + 4)[0]
+            if abs(by - old_y) < UNITS * 2:          # a relative copy of the same position
+                struct.pack_into("<ii", rec, i, new_x, new_y + (by - old_y))
+                patched += 1
+        # The record also stores the point that was clicked rather than the anchor. Rewriting
+        # that too produced a design ISIS crashes on, where leaving it alone is only rejected, so
+        # the two fields are not the plain coordinates they look like. Left alone until they are
+        # understood.
+        i += 1
+    print("patched the position at %d places in the record" % patched)
 
     id_counter = u16(d, head + 19)
     unit_counter = u16(d, head + 21) + 1
@@ -162,6 +191,9 @@ def append_instance(base, device, x, y, out=None):
     seq = 1 + part_records
     tail_bytes = b"\x00" * 5
     if pins:
+        # big-endian here, unlike the entry's id and sequence, which are big-endian too but
+        # written by pack() above - both orders appear in this file format and mixing them up
+        # produces a design ISIS crashes on rather than merely rejects
         t = bytearray(struct.pack(">HH", unit_counter, len(pins)))
         for key, nums in pins:
             s = str(nums[unit_no - 1])

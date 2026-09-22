@@ -358,6 +358,22 @@ still rejects it, so what is left is structural rather than a field value - most
 point at which the new record is inserted or the order objects end up in. The two files to
 compare are `BB_pick3.DSN` (before) and `BC_pick5.DSN` (ISIS after five placements).
 
+### Where that ended up
+
+The records turned out to sit at identical offsets in both files, so the object order is right;
+the residual is inside the two new records and in their entries. Patching the anchor's copies -
+it appears three times in a record, once at +6 and again in the COMPONENT ID and COMPONENT VALUE
+blocks, with the later two offset by 0.416 inch in y - took the diff from 109 bytes to 67, which
+is where it rests. Two things resist:
+
+a record also stores the point that was clicked rather than the anchor it settles on, and
+rewriting that pair turns a rejection into a crash, so it is not the plain coordinate pair it
+looks like; and flipping the entry's unit counter to little-endian does the same. Both were
+reverted, leaving a file that is the right size and the right shape and is quietly refused.
+
+That is the state to resume from: `scripts/dsn_add_instance.py` carries the same note at the
+top, and `BB_pick3.DSN` versus `BC_pick5.DSN` is the pair to diff.
+
 Chart frames and other rectangles want two different points - one corner, then the opposite
 one. Two clicks at the same point give a zero-size frame.
 
