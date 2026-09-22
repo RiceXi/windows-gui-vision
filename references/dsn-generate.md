@@ -1,8 +1,11 @@
 # Adding objects to a .DSN from a script
 
 Status after re-testing in September 2026 on ISIS 7.08 SP2, build 10468: **adding a record does
-not work.** Files built by inserting part records failed to load, whichever design the record
-came from and whichever part it was. Editing a record without changing its size still works.
+work - with a recipe that differs from this page's in one step.** Files built the way this page
+describes failed to load, whichever design the record came from and whichever part it was. The
+recipe that does load is in [dsn-append.md](dsn-append.md), along with the byte comparison that
+found it. Editing a record without changing its size still works, and that part of this page is
+unchanged.
 
 The tests are at the bottom of this file and are worth reading before the recipe, because the
 recipe is the thing that keeps looking correct and does not produce a design you can open.

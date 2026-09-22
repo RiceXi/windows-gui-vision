@@ -50,6 +50,9 @@ coordinates land on the 0.1 inch grid when you have got the offsets right, which
 know you have. Comparing two designs, or answering "which of these samples uses a 741", is a
 few lines of script.
 
-It is not a way to build a design. Inserting these records into another design produced files
-ISIS would not load, whichever design the record came from. That result and the tests behind
-it are in [dsn-generate.md](dsn-generate.md).
+Records are also what you append when you want more instances of a part in a design that
+already holds it, and that works - see [dsn-append.md](dsn-append.md) for the recipe. What does
+not work is moving a record that has wires or a script attached to it, which is most of what
+this library contains, so treat the raw slices here as something to read rather than something
+to lift. Lifting is safe when the part was placed and left unconnected, in which case the
+record runs from its `FF 02` marker to the object area's `FF` sentinel.

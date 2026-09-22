@@ -59,8 +59,9 @@ Copy the folder to `%USERPROFILE%\.codex\skills\windows-gui-vision`, or point
 | `references/docx-report.md` | turning captures into figures inside a Word document |
 | `references/proteus.md` | Proteus ISIS/ARES specifics, measured on a real install |
 | `references/dsn-format.md`, `references/dsn-generate.md` | editing Proteus `.DSN` files directly |
+| `references/dsn-append.md` | adding a component to a design from a script, verified, and what is still missing |
 | `references/dsn-templates.md` | lifting part records out of existing designs into a json library |
-| `scripts/` | 22 helpers: capture, OCR, vision, pixels, calibration, layout, self-checks, `.DSN` reading and editing |
+| `scripts/` | 23 helpers: capture, OCR, vision, pixels, calibration, layout, self-checks, `.DSN` reading, appending and load checks |
 
 Everything under `scripts/` is command line and prints plain text or json, so it composes in
 shell loops. `SKILL.md` and the reference files are what an agent reads; you can read them too.
@@ -73,11 +74,12 @@ shell loops. `SKILL.md` and the reference files are what an agent reads; you can
   spaced list rows, but naming which button is which is still a one-time manual pass.
 - Vision accuracy. It is fine at "what is this" and unreliable at coordinates, small text and
   anything that sounds like an inventory. The docs say which questions to avoid.
-- Bulk creation of a schematic. Reading a Proteus `.DSN`, and editing one without changing the
-  size of anything, both work. Adding a part or a wire by writing bytes does not: every design
-  I built that way failed to load in ISIS 7.08 SP2, so building a schematic means driving the
-  GUI. `references/dsn-generate.md` has the tests, `references/dsn-templates.md` the part
-  library that came out of them.
+- Wires in a generated schematic. Adding a component to a `.DSN` from a script works now, with
+  two conditions: the design has to already contain that part type, and the record must come
+  from a part with nothing wired or scripted to it. Adding a wire that way does not work yet,
+  so a generated circuit still gets its connections by clicking from pin to pin in ISIS. See
+  `references/dsn-append.md` for the recipe, the two conditions and the wire format as far as
+  it has been decoded.
 
 ## License
 
