@@ -15,7 +15,8 @@ param(
     [int]$GapMs = 800,
     [int]$PressMs = 45,
     [int]$Approach = 6,                                # mouse moves before each click
-    [switch]$AbortOnLostFocus                          # stop instead of clicking into another window
+    [switch]$AbortOnLostFocus,                         # stop instead of clicking into another window
+    [switch]$Topmost                                   # float the target above everything first
 )
 
 $sig = @'
@@ -32,6 +33,19 @@ public class Clicker {
  [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
  [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint dx, uint dy, uint d, IntPtr e);
+ [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT p);
+ [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+ [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
+ public static uint self = 0;
+ public static bool UnderPointer(int x, int y) {
+   IntPtr h = WindowFromPoint(new POINT { X = x, Y = y });
+   if (h == IntPtr.Zero) return false;
+   uint pid; GetWindowThreadProcessId(h, out pid);
+   return pid == self;
+ }
+ public static void Topmost(bool on) {
+   SetWindowPos(main, on ? new IntPtr(-1) : new IntPtr(-2), 0, 0, 0, 0, 0x0003);
+ }
  public delegate bool EnumProc(IntPtr h, IntPtr l);
  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
  public static IntPtr main = IntPtr.Zero;
@@ -85,6 +99,8 @@ Add-Type -TypeDefinition $sig
 
 [Clicker]::Find([uint32]$TargetPid)
 if ([Clicker]::main -eq [IntPtr]::Zero) { Write-Output "no visible window for pid $TargetPid"; exit 1 }
+[Clicker]::self = [uint32]$TargetPid
+if ($Topmost) { [Clicker]::Topmost($true); Start-Sleep -Milliseconds 300 }
 
 $points = @()
 foreach ($p in ($Clicks -split '\s+')) {
@@ -102,13 +118,17 @@ foreach ($pt in $points) {
     [void][Clicker]::Force()
     Start-Sleep -Milliseconds 150
     $focused = [Clicker]::Focused()
+    # What decides where a click goes is the window *under the pointer*, not whether the target is
+    # already the foreground one: SetForegroundWindow is refused while the user is interacting
+    # with anything, but a click on a topmost window still lands in it and wakes it up.
+    $under = [Clicker]::UnderPointer($pt[0], $pt[1])
     # Half a placement, or half a wire, is worse than none: the leftover has to be found and
     # deleted by hand. Stopping here leaves the design in a state the file can describe exactly.
-    if ($AbortOnLostFocus -and -not $focused) {
-        Write-Output ("ABORT before click {0}/{1}: {2},{3} is not foreground" -f $n, $points.Count, $pt[0], $pt[1])
+    if ($AbortOnLostFocus -and -not $under) {
+        Write-Output ("ABORT before click {0}/{1}: {2},{3} is not over the target window" -f $n, $points.Count, $pt[0], $pt[1])
         exit 2
     }
     [Clicker]::ApproachClick($pt[0], $pt[1], $PressMs, $Approach)
-    Write-Output ("click {0}/{1} at {2},{3} foreground={4}" -f $n, $points.Count, $pt[0], $pt[1], $focused)
+    Write-Output ("click {0}/{1} at {2},{3} foreground={4} under={5}" -f $n, $points.Count, $pt[0], $pt[1], $focused, $under)
     Start-Sleep -Milliseconds $GapMs
 }
