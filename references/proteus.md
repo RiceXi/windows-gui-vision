@@ -691,3 +691,66 @@ Two experiments, same day, same build:
   refused silently, and on an older script-written design it produces the crash shape. The same
   recipe was reported working earlier, so treat any claim that appending works as unverified
   until the file it produced has been opened by name.
+
+## A click that lands in the other window looks exactly like a click that did nothing
+
+With two copies of ISIS open - the user's sheet and a copy to experiment on - every click goes to
+whichever window is *foreground*, and while the user is working Windows refuses
+`SetForegroundWindow` without complaining. Measured today: the same batch of clicks reported
+`foreground=True` for its first three and `False` for the last two, and the file afterwards had
+one part instead of the expected two.
+
+So the clicks have to be one process that re-asserts the foreground before *each* click and
+prints whether it stuck, which is what `scripts/proteus_click.ps1` does:
+
+```
+powershell -File scripts/proteus_click.ps1 -TargetPid P -Clicks "25,143 72,232 1372,221" -Repeat 3
+click 1/5 at 25,143  foreground=True
+click 2/5 at 72,232  foreground=True
+click 3/5 at 1372,221 foreground=True
+```
+
+A placement that reports `foreground=False` on any click should be treated as not done, and the
+file is what settles it either way. Placement accuracy when the focus does hold: asked for
+(5.600, 2.600), the saved record read (5.592, 2.608).
+
+## Saving, and running a menu command, without the keyboard
+
+`Ctrl+S` goes to the foreground window, so a script cannot save the window it is driving while
+the user is typing somewhere else - the keystroke either lands in the other document or nowhere.
+Menu commands and toolbar buttons can be sent to the window itself instead, and they arrive
+regardless of focus:
+
+```
+python scripts/menu_command.py --pid P --list                    # 文件(F) 查看(V) 编辑(E) ...
+python scripts/menu_command.py --pid P --menu 0 --list           # ids: 308 保存设计, 309 另存为
+python scripts/menu_command.py --pid P --menu 0 --item 保存设计   # sends WM_COMMAND 308
+```
+
+`scripts/toolbar_press.py` presses a toolbar button by the same command id (the file toolbar's
+buttons carry the menu's ids), which is the second focus-free route to the same commands.
+
+**Do not send the pointer-bearing toolbar messages across processes.** `TB_GETBUTTON` and
+`TB_GETITEMRECT` want a pointer in the target process' address space; passing one from a helper
+process killed a live ISIS instance mid-run today, which then looked like "the save made my
+window vanish". `TB_BUTTONCOUNT`, `TB_COMMANDTOINDEX` and `TB_PRESSBUTTON` take integers and are
+safe.
+
+## Where a device's pins are
+
+The symbol definition the design carries has the pins with coordinates, and they are the offsets
+a placed instance needs - pin point = instance anchor + these numbers:
+
+```
+python scripts/dsn_device_pins.py design.DSN --device 74LS00
+   $PINDEFAULT  A   pin 1   ( -0.300,  +0.100)
+   $PINDEFAULT  B   pin 2   ( -0.300,  -0.100)
+   $PININVERT   Y   pin 3   ( +0.300,  +0.000)
+```
+
+Two details that cost time: the four bytes in front of a pin record are `[?][0A 00 00]` where the
+first byte may or may not be present, so take the coordinates from the *match groups'* own
+offsets rather than from a fixed offset; and between a device's `[NAME]+` marker and its
+`*PINOUT` keyword sit about seven bytes of binary, so that search needs a wildcard. For devices
+whose definition carries `$PINSHORT` records the coordinates come out the same way, but the pin
+*names* are not always there - a ground truth from a hand-wired design is the way to check.
