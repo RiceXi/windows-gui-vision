@@ -783,3 +783,47 @@ cursor), crop around the pointer, and ask a vision model whether the cursor is a
 crosshair. A crosshair means the application did not snap, so the point is not a connection
 point. `scripts/hover_scan.ps1` is the same idea in bulk: hover a list of points and keep one
 capture per point, then look for the small marker the application draws on a connection point.
+
+Two more traps, both measured the hard way:
+
+* **A click near the canvas edge auto-scrolls the sheet.** A batch that placed three terminals
+  near the top of the visible area came back with coordinates 7 inches from where the clicks
+  were: the view had scrolled part way through the run, so the mapping that was correct at the
+  first click was wrong for the rest. Keep edit clicks well inside the sheet, and re-check the
+  mapping (place something small and read it back) rather than trusting one calibration for a
+  long run.
+* **Placing a terminal happens on the canvas click itself.** In terminals mode every canvas
+  click drops whatever row is armed, including the "move the preview there first" click - a
+  four click sequence (mode, row, near, target) therefore leaves *two* terminals behind. And
+  wire clicks issued while a placement row is still armed place more terminals instead of
+  drawing: switch to a non-placing mode (selection) between placing and wiring.
+
+## Reading a design back: nets, dangling ends, and measured pin offsets
+
+`scripts/dsn_netlist.py` answers the question the whole workflow needs - "is this actually the
+circuit I meant" - from the file alone:
+
+```
+python scripts/dsn_netlist.py design.DSN [--pins] [--near x,y --radius 0.8]
+```
+
+It prints the nets (grouping wires that share an endpoint, plus which power terminal names sit on
+them), the dangling wire ends with the nearest parts, and with `--pins` the wire-end offsets
+around every instance. That last one is how the pin table below was measured: an offset that
+appears on *every* instance of a device is a pin, because a wire can only exist between
+connection points. The user's own hand-wired designs were the source - `hand_wire_2.DSN` for the
+74LS00, `hand_new.DSN` for the switch, resistor and probe.
+
+`scripts/dsn_pins_table.py` holds the result, relative to the anchor this folder's readers
+produce:
+
+| device | pins (design inches from the anchor) |
+| --- | --- |
+| 74LS00 | A `(-0.192,-0.108)`, B `(-0.192,-0.308)`, Y `(+0.808,-0.208)` |
+| SW-SPST | `(-0.092,-0.138)`, `(+0.408,-0.138)` |
+| RES (10k) | `(-0.092,-0.048)`, `(+0.408,-0.048)` |
+| terminals | the pin is the point that was clicked when it was placed |
+
+`scripts/proteus_wire.py` ties it together: give it a plan of `PART.PIN  PART.PIN` lines and it
+calibrates the mapping with one spare placement, converts the pins to screen points, runs the
+clicks with focus checking, saves by command id, and reports the wire count before and after.
