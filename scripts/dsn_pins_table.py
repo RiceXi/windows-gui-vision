@@ -23,12 +23,22 @@ TABLE = {
         "1": (-0.092, -0.138),
         "2": (+0.408, -0.138),
     },
-    "RES": {                       # from hand_new.DSN: R1 (device id 10k, value RES)
+    "RES": {                       # from hand_new.DSN: R1
+        "1": (-0.092, -0.048),
+        "2": (+0.408, -0.048),
+    },
+    # the same symbol, under the name the COMPONENT ID field carries for a 10k resistor
+    "10k": {
         "1": (-0.092, -0.048),
         "2": (+0.408, -0.048),
     },
     "LOGICPROBE": {                # from hand_new.DSN: U1
         "P": (+0.208, +0.142),
+    },
+    "TLE2425": {                   # from hand_new.DSN: U1 and U3 agree on the first two
+        "P1": (+0.208, +0.142),
+        "P2": (-0.192, -0.458),
+        "P3": (+0.408, -0.958),
     },
 }
 

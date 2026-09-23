@@ -193,13 +193,34 @@ def main():
                  "  <-- power" if labels else ""))
 
     # dangling ends: an end that is on no other wire's point at all
-    print("  dangling wire ends:")
+    # a wire end is *placed* when it sits on a known device pin or on another wire; anything else
+    # is a loose end, which is what "clicked a pin then clicked empty space" leaves behind
+    try:
+        import dsn_pins_table as _pins
+    except Exception:
+        _pins = None
+    devs = device_of(d, head, tail)
+
+    def on_a_pin(end):
+        if _pins is None:
+            return None
+        for pname, (px, py) in ps.items():
+            dev = devs.get(pname)
+            if dev not in _pins.TABLE:
+                continue
+            for label, (ox, oy) in _pins.TABLE[dev].items():
+                if same(end, (px + ox, py + oy)):
+                    return "%s.%s" % (pname, label)
+        return None
+
+    print("  loose wire ends (not on any wire):")
     n_dangling = 0
     for i, wi in enumerate(ws):
         for end in (wi[0], wi[-1]):
             others = [p for j, wj in enumerate(ws) if j != i for p in wj]
             if not any(same(end, p) for p in others):
                 n_dangling += 1
+                pin = on_a_pin(end)
                 near = [(nm, round((end[0] - x) ** 2 + (end[1] - y) ** 2, 3))
                         for nm, (x, y) in ps.items()
                         if abs(end[0] - x) < 1.0 and abs(end[1] - y) < 1.0]
@@ -207,8 +228,10 @@ def main():
                          for nm, kind, x, y in ts
                          if abs(end[0] - x) < 1.5 and abs(end[1] - y) < 1.5]
                 near.sort(key=lambda t: t[1])
-                print("    (%.3f,%.3f)  nearest parts: %s"
-                      % (end[0], end[1], ", ".join(nm for nm, _ in near[:3]) or "-"))
+                print("    (%.3f,%.3f)  %s  nearest: %s"
+                      % (end[0], end[1],
+                         ("ON PIN %s" % pin) if pin else "not on a known pin",
+                         ", ".join(nm for nm, _ in near[:3]) or "-"))
     if n_dangling == 0:
         print("    none")
 
