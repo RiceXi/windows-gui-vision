@@ -64,6 +64,9 @@ def main():
     ap.add_argument("--pid", type=int, required=True)
     ap.add_argument("--menu", type=int)
     ap.add_argument("--item")
+    ap.add_argument("--id", type=int,
+                    help="send WM_COMMAND with this id directly - safer than matching a "
+                         "localised menu string, which a non-UTF-8 console mangles")
     ap.add_argument("--list", action="store_true")
     a = ap.parse_args()
 
@@ -71,6 +74,10 @@ def main():
     if hwnd is None:
         raise SystemExit("no main window for pid %d" % a.pid)
     menubar = user32.GetMenu(hwnd)
+    if a.id is not None:
+        user32.SendMessageW(hwnd, WM_COMMAND, a.id, 0)
+        print("sent WM_COMMAND %d" % a.id)
+        return
     if a.menu is None:
         for i in range(user32.GetMenuItemCount(menubar)):
             print("%2d  %s" % (i, item_text(menubar, i).replace("&", "")))
