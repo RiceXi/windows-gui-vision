@@ -14,14 +14,24 @@ import sys
 UNITS = 2540000.0
 
 
+def show(text):
+    """Print without falling over on a console whose code page is not UTF-8.
+
+    The first run of this on a Chinese Windows console died with a UnicodeEncodeError on the
+    byte after a terminal name, which is no way for a listing tool to behave.
+    """
+    enc = sys.stdout.encoding or "ascii"
+    sys.stdout.write(text.encode(enc, "backslashreplace").decode(enc) + "\n")
+
+
 def main(path):
     d = open(path, "rb").read()
     head = d.find(b"ISIS CIRCUIT FILE")
     tail = d.find(b"ISIS CIRCUIT FILE", head + 1)
     if head < 0 or tail < 0:
-        print("no circuit markers: %s" % path)
+        show("no circuit markers: %s" % path)
         return
-    print("== %s  %d bytes, object area %d..%d" % (path, len(d), head, tail))
+    show("== %s  %d bytes, object area %d..%d" % (path, len(d), head, tail))
 
     # A terminal record is [0xFF][len]["$TERPOWER"][0x0D][0x00][0xFF][len][name]
     # so the net name is the length-prefixed string a dozen bytes further on.
@@ -33,7 +43,7 @@ def main(path):
         nlen = d[cat]
         label = d[cat + 1:cat + 1 + nlen].decode("latin1", "replace")
         x, y = struct.unpack_from("<ii", d, cat + 1 + nlen)
-        print("  %-12s @%-7d (%.4f, %.4f)  name=%r"
+        show("  %-12s @%-7d (%.4f, %.4f)  name=%r"
               % (kind, o, x / UNITS, y / UNITS, label))
 
     pat = re.compile(b"\xff([\x02\x03\x07])([\x20-\x7e]{1,14})")
@@ -45,16 +55,17 @@ def main(path):
             continue
         pos = o + 2 + len(name)
         x, y = struct.unpack_from("<ii", d, pos)
-        print("  part %-14s kind=%d @%-7d (%.4f, %.4f)"
+        show("  part %-14s kind=%d @%-7d (%.4f, %.4f)"
               % (name, kind, o, x / UNITS, y / UNITS))
 
     for m in re.finditer(b"\x02\x7fWIRE\x00", d[head:tail]):
         o = head + m.start()
         n = struct.unpack_from("<H", d, o + 9)[0]
         pts = [struct.unpack_from("<ii", d, o + 11 + 8 * i) for i in range(n)]
-        print("  WIRE @%-7d n=%d  %s" % (o, n, " ".join(
+        show("  WIRE @%-7d n=%d  %s" % (o, n, " ".join(
             "(%.3f,%.3f)" % (a / UNITS, b / UNITS) for a, b in pts)))
 
 
 if __name__ == "__main__":
     main(sys.argv[1])
+
