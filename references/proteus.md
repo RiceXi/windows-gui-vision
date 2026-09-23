@@ -827,3 +827,46 @@ produce:
 `scripts/proteus_wire.py` ties it together: give it a plan of `PART.PIN  PART.PIN` lines and it
 calibrates the mapping with one spare placement, converts the pins to screen points, runs the
 clicks with focus checking, saves by command id, and reports the wire count before and after.
+
+## Picking devices and pages by command id (a fresh design from nothing)
+
+The library dialog and the page commands are reachable by message, which is what finally made a
+*brand new* design possible - no donor file needed:
+
+| what | menu | id |
+| --- | --- | --- |
+| 新建设计 | 文件 | 306 |
+| 保存设计 / 另存为 | 文件 | 308 / 309 |
+| 新建页面 | 设计 | 67 |
+| 下一页 | 设计 | 75 |
+| 拾取元件 | 库 | 208 |
+| 缩放到整图 | 查看 | 331 |
+| 执行 (run) / 停止仿真 | 调试 | 192 / 197 |
+
+`scripts/pick_device.py` drives the dialog: `WM_SETTEXT` for the keyword, an `EN_CHANGE`
+notification so the filter actually re-runs, `LVM_GETITEMCOUNT`/`LVM_GETNEXTITEM` to check the
+result list, `BM_CLICK` on 确定. Verified by populating an empty design with 74LS00, 74LS32,
+LOGICPROBE and SW-SPST.
+
+Saving an **untitled** design is the one file command that is ignored when sent as a message, so
+it has to be reached with the keyboard - which needs the window to be genuinely foreground. The
+way in: make the window topmost, then click its own title bar (a real click activates a window
+even when `SetForegroundWindow` is refused), then `Ctrl+S` opens 另存为, whose filename box and
+保存 button `scripts/dialog_fill.py` fills and presses. That is how `nt_clean.DSN` came to exist.
+
+## When placements stop landing for no visible reason
+
+Measured more than once: clicks report `foreground=True` and `under=True` (the pointer really is
+over that process' window), the file does not change, the process is responding, and no dialog is
+listed - yet nothing is placed. Both times the cause was a *modal dialog that had been dismissed
+or had never been seen*: clearing every small window of the process before each batch
+(`proteus_input.ps1 -CloseNotices`) fixed a run that had failed ten times in a row. A placement
+sequence should therefore start by clearing dialogs, and the only trustworthy check on the result
+is the object list in the saved file.
+
+`scripts/proteus_builder.py` is the loop that came out of all this: a plan of `place`, `terminal`,
+`wire` and `discover` steps, each retried until the *file* shows the change, with the screen
+mapping recalibrated from every successful placement (the sheet drifts between batches; measured
+(780,460) then (610,444) then (520,270) for one instance). `discover` is how a device whose pins
+are not in the table yet gets measured: candidate offsets are tried one at a time and a wire only
+appears when both ends are on connection points.
