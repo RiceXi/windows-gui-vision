@@ -153,3 +153,15 @@ the launch notice by message, so the main window stops being disabled and clicks
 design at all - see [dsn-draw-wires.md](references/dsn-draw-wires.md). The acceptance test for
 anything generated is a save round trip followed by counting instances and wires in the saved file
 - a design can load, show its name in the title, and still come back with objects missing.
+
+Five more, all measured rather than guessed: `scripts/forcefocus.ps1` brings a window to the
+front for real, which is what makes clicks land when a second copy of the application is open
+behind the user's own; `scripts/mouse.ps1` sends one real click, a double click or a right click
+from a single process; `scripts/wintop.ps1` floats a window above the rest; `scripts/dialog_fill.py`
+fills a dialog's edit box and presses its button by message, which sidesteps the keyboard and the
+IME; and `scripts/capture_hwnd.py` photographs a window by class, which is the only way to read a
+popup menu. On the design side, `scripts/dsn_objects.py` lists what a saved file really holds -
+parts with anchors, terminals with their net names, wires with their points -
+`scripts/dsn_set_terminal_name.py` renames a terminal by rewriting the file, and
+`scripts/probe_toolbar.ps1` names the mode toolbar buttons for the window in front of you, since
+they move with it.

@@ -598,3 +598,96 @@ record the same size - moving a part, renaming it to an equally long name. Addin
 way does not work on 7.08 SP2; see [dsn-generate.md](dsn-generate.md) for the tests. Building a
 schematic means driving the GUI, and the saved design is then the evidence trail: a saved
 design tells you what is really there, where a screenshot only tells you what was drawn.
+
+## Power terminals: VCC is the POWER terminal, and it arrives unnamed
+
+There is no `VCC` part in the library. VCC and GND are *terminals*: the terminals mode (终端模式)
+lists `DEFAULT, INPUT, OUTPUT, BIDIR, POWER, GROUND, BUS`, and POWER is the positive rail -
+Labcenter's own `SAMPLES\Graph Based Simulation\Diode.DSN` stores a placed one as `$TERPOWER`
+followed by the name `"VCC"`, and `LIBRARY\PWRRAILS.INI` binds `VCC/VDD` to 5.0 V. So the answer
+to "where do I find VCC" is: terminals mode, POWER.
+
+A freshly placed POWER or GROUND terminal has an **empty name**, which is not a cosmetic
+problem - an unnamed terminal joins no power net, so pull-ups have nothing to pull up to. The
+name lives in the record as a length-prefixed string:
+
+```
+[0x09]["$TERPOWER"][0x0D][0x00][0xFF][len][name][anchor x][anchor y]
+[0x0A]["$TERGROUND"][0x0D][0x00][0xFF][len][name][anchor x][anchor y]
+```
+
+`scripts/dsn_objects.py` reads it back, which is how you check the naming worked:
+
+```
+python scripts/dsn_objects.py design.DSN        # parts, terminals with names, wires
+```
+
+## Naming a terminal, and the dialog that finally opened
+
+Double click does nothing on a terminal. The route that works is: select it, then `Ctrl+E` -
+the same "编辑属性 / Edit Properties" that the right-click menu's first item carries. That opens
+`Edit Terminal Label` (#32770), whose label field is an edit **inside a ComboBox** at the top and
+whose buttons are 确定/取消 at the bottom right.
+
+`scripts/dialog_fill.py` writes the text and presses the button without touching the keyboard,
+which is what makes it immune to the IME:
+
+```
+python scripts/dialog_fill.py --pid <isis-pid> --dialog "Edit Terminal Label" --list
+python scripts/dialog_fill.py --pid <isis-pid> --dialog "Edit Terminal Label" --text VCC --click-button 确定
+```
+
+Sending the text with `WM_SETTEXT` **and** pressing the button with `BM_CLICK` is the pair that
+commits; sending `WM_COMMAND IDOK` to the dialog looked like it worked once and left the name
+empty on a later run, which is exactly the kind of silent failure that costs an hour. Verified
+both ways against the saved file: `$TERPOWER (-1.600,2.600) name='VCC'`.
+
+The right-click menu itself can be photographed - `scripts/capture_hwnd.py --pid P --class #32768`
+prints the menu window's own pixels, since a menu is a window of its own and never appears in a
+`PrintWindow` of the application:
+
+```
+python scripts/capture_hwnd.py --pid P --class #32768 --out menu.png
+```
+
+## A second ISIS window steals every click
+
+To experiment without touching the user's sheet, open a copy in a second ISIS instance
+(`Start-Process ISIS.EXE '"copy.DSN"'`). Input goes to the window under the pointer, and Windows
+refuses `SetForegroundWindow` from a process the user is not interacting with - silently, so
+every click lands in the other design and the run looks like "the script did nothing".
+
+`scripts/forcefocus.ps1` does the old attach-to-the-foreground-thread dance and reports
+`setforeground=True`; with it, the placement recipe lands dead on:
+
+| step | what | why |
+| --- | --- | --- |
+| 1 | `forcefocus.ps1 -TargetPid P` | otherwise the clicks go to the other instance |
+| 2 | mode button, then the object selector row | the part is only armed from the list |
+| 3 | three clicks on the target point | two arm and place; a run that stops at two leaves the part hanging on the pointer |
+| 4 | `Ctrl+S`, then parse the file | the file is the only proof the part exists |
+
+Measured accuracy: asked for design (5.200, 1.000), the saved record read (5.192, 1.008).
+Terminals place with their own offset - the anchor lands 0.10 in left and 0.20 in above the
+point clicked, against 0.308/0.208 for a part.
+
+The mode buttons have to be measured for the window you are driving, and they move with the
+window: `scripts/probe_toolbar.ps1` hovers each one and captures the window, and ISIS writes the
+tool's name into the status bar. Measured on a 1416x832 window with its top left at (0,20),
+hovering x=25: **110 selection, 150 device, 170 junction, 190 wire label, 210 text, 230 bus,
+250 subcircuit, 270 terminals, 290 device pins**.
+
+## What a file edit can and cannot do
+
+Two experiments, same day, same build:
+
+* **Renaming a terminal by rewriting the file works.** Inserting the three bytes of `"VCC"`
+  into an empty name means shifting every 32-bit field whose value points past the edit - the
+  object-area end at `head-4`, the pointers into the model blocks at the end of the file, the
+  wire link fields. 21 such fields in a typical design. `scripts/dsn_set_terminal_name.py` does
+  it, and ISIS opened the result by name (`vcc - ISIS Professional`). A file with two bytes
+  flipped at random still loads, so there is no whole-file checksum to defeat.
+* **Appending an object still does not work.** `dsn_add_instance.py` on an ISIS-saved design is
+  refused silently, and on an older script-written design it produces the crash shape. The same
+  recipe was reported working earlier, so treat any claim that appending works as unverified
+  until the file it produced has been opened by name.

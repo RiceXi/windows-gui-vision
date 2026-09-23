@@ -77,14 +77,22 @@ $clickX = $AtX - $AnchorDX
 $clickY = $AtY - $AnchorDY
 $dst = To-Screen $clickX $clickY
 Write-Output ("placing at design ({0}, {1}): clicking ({2}, {3}) -> screen ({4}, {5})" -f $AtX, $AtY, $clickX, $clickY, $dst[0], $dst[1])
-# Two clicks on the same point. The first fixes the part under the pointer, the second commits
-# it; clicking a different point first (which the manual suggests for a preview) leaves the
-# placement unfinished in this build.
-& $input -TargetPid $TargetPid -ClickX $dst[0] -ClickY $dst[1]
+# Clicks go to whatever window is under the pointer, so the target has to be brought back to the
+# front before every one of them. With two ISIS windows open - a second one opened on a copy to
+# run a comparison, say - an unfocused click silently lands in the other design, and the run
+# looks like a placement that did nothing. Measured both ways.
+#
+# Three clicks are needed, not two: the first arms the placement, the second one places the
+# part, and a run that stops at two leaves a part hanging on the pointer (its ink follows the
+# cursor and no record is written). Verified against the saved file, which is the only thing
+# that settles it.
+& $input -TargetPid $TargetPid -Focus -ClickX $dst[0] -ClickY $dst[1]
 Start-Sleep -Milliseconds $ClickGapMs
-& $input -TargetPid $TargetPid -ClickX $dst[0] -ClickY $dst[1]
+& $input -TargetPid $TargetPid -Focus -ClickX $dst[0] -ClickY $dst[1]
 Start-Sleep -Milliseconds $ClickGapMs
-& $input -TargetPid $TargetPid -MoveX 1150 -MoveY 150
+& $input -TargetPid $TargetPid -Focus -ClickX $dst[0] -ClickY $dst[1]
+Start-Sleep -Milliseconds $ClickGapMs
+& $input -TargetPid $TargetPid -Focus -MoveX 1150 -MoveY 150
 Start-Sleep -Milliseconds 400
 
 if ($Keys -ne "") {

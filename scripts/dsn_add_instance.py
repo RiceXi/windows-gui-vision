@@ -127,7 +127,9 @@ def append_instance(base, device, x, y, out=None):
     for nm in names:
         name = nm.group(1).decode("latin1")
         rec_off = head + nm.start()
-        ids = re.search(rb"COMPONENT ID\x00\x00{0,6}\xFF(.)([\x20-\x7e]{1,24})",
+        # the name is followed by an eight byte binary id, so it must be read with a class that
+        # stops before it - a plain printable run captured "74S00`4M" and never matched
+        ids = re.search(rb"COMPONENT ID\x00\x00{0,6}\xFF(.)([A-Za-z0-9_+\-./]{1,24})",
                         d[rec_off:rec_off + 600])
         if ids and ids.group(2).decode("latin1") == device:
             # the record ends where the next instance record begins, not at the object-area end
