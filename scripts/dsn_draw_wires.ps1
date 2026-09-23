@@ -312,12 +312,12 @@ foreach ($w in $wires) {
         # as ANSI and turns any non-ASCII literal into mojibake
         Write-Output ("  tap: creating a node at ({0},{1}) with the junction tool" -f $w[0][0], $w[0][1])
         Invoke-ChildInput $JunctionX $JunctionY -Click
-        Start-Sleep -Milliseconds 500
+        Start-Sleep -Milliseconds 1200
         Invoke-ChildInput $ax $ay -Click
-        Start-Sleep -Milliseconds 800
+        Start-Sleep -Milliseconds 1500
         Clear-Dialogs $proc.Id
         Invoke-ChildInput $NeutralX $NeutralY -Click
-        Start-Sleep -Milliseconds 500
+        Start-Sleep -Milliseconds 1200
     }
     Click-Point $ax $ay
     if ($CheckFirst) {
