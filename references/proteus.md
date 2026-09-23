@@ -754,3 +754,32 @@ offsets rather than from a fixed offset; and between a device's `[NAME]+` marker
 `*PINOUT` keyword sit about seven bytes of binary, so that search needs a wildcard. For devices
 whose definition carries `$PINSHORT` records the coordinates come out the same way, but the pin
 *names* are not always there - a ground truth from a hand-wired design is the way to check.
+
+## Wiring: both ends have to be connection points, and each instance has its own scroll
+
+Two things made a long stretch of "the script cannot draw a wire" look like a scripting problem
+when it was not:
+
+* **A wire is only written when both clicks land on connection points** - a pin, an existing
+  wire, or a junction. Clicking a pin and then an empty spot leaves the second end pending and
+  writes *nothing*, so a run of such probe wires comes back with an unchanged file, which reads
+  exactly like "the clicks are not arriving". Every wire recipe has to end on a pin.
+* **A fresh instance of the same design does not necessarily reopen at the same scroll.**
+  Placement clicks then land on a different part of the sheet and quietly do nothing. Calibrate
+  each instance: place one part at a point whose design coordinate you have assumed, save, and
+  read the anchor back out of the file. Twice today that check came back as asked for - clicked
+  for design (5.600, 2.600), record held (5.592, 2.608) - and once it came back with no part at
+  all, which is the view drifting.
+
+`scripts/proteus_click.ps1` walks the pointer to each point in steps before pressing, because a
+press with no preceding motion is not the same event to the application, and takes
+`-AbortOnLostFocus` so the sequence stops instead of clicking into whatever window took the
+foreground: half a wire or half a placement is worse than none, since the leftover has to be
+found and deleted by hand.
+
+For "is this point a pin at all", the check that does not depend on guessing: park the pointer
+there, take a screen grab (`grab_foreground.ps1` - a PrintWindow capture never contains the
+cursor), crop around the pointer, and ask a vision model whether the cursor is a pencil or a
+crosshair. A crosshair means the application did not snap, so the point is not a connection
+point. `scripts/hover_scan.ps1` is the same idea in bulk: hover a list of points and keep one
+capture per point, then look for the small marker the application draws on a connection point.

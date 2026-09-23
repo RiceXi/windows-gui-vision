@@ -13,7 +13,9 @@ param(
     [Parameter(Mandatory=$true)][string]$Clicks,      # "x,y x,y ..." in screen pixels
     [int]$Repeat = 1,                                  # how often to repeat the last point
     [int]$GapMs = 800,
-    [int]$PressMs = 45
+    [int]$PressMs = 45,
+    [int]$Approach = 6,                                # mouse moves before each click
+    [switch]$AbortOnLostFocus                          # stop instead of clicking into another window
 )
 
 $sig = @'
@@ -63,6 +65,20 @@ public class Clicker {
    System.Threading.Thread.Sleep(press);
    mouse_event(0x0004, 0, 0, 0, IntPtr.Zero);
  }
+ // A click without a preceding *motion* is not the same event to the application: Isis decides
+ // whether the pointer is on a connection point from its own mouse-move bookkeeping, so a jump
+ // straight to the target and a press never starts a wire. Walking there in steps does.
+ public static void ApproachClick(int x, int y, int press, int steps) {
+   for (int i = 1; i <= steps; i++) {
+     SetCursorPos(x - (steps - i) * 3, y - (steps - i) * 2);
+     System.Threading.Thread.Sleep(40);
+   }
+   SetCursorPos(x, y);
+   System.Threading.Thread.Sleep(150);
+   mouse_event(0x0002, 0, 0, 0, IntPtr.Zero);
+   System.Threading.Thread.Sleep(press);
+   mouse_event(0x0004, 0, 0, 0, IntPtr.Zero);
+ }
 }
 '@
 Add-Type -TypeDefinition $sig
@@ -86,7 +102,13 @@ foreach ($pt in $points) {
     [void][Clicker]::Force()
     Start-Sleep -Milliseconds 150
     $focused = [Clicker]::Focused()
-    [Clicker]::Click($pt[0], $pt[1], $PressMs)
+    # Half a placement, or half a wire, is worse than none: the leftover has to be found and
+    # deleted by hand. Stopping here leaves the design in a state the file can describe exactly.
+    if ($AbortOnLostFocus -and -not $focused) {
+        Write-Output ("ABORT before click {0}/{1}: {2},{3} is not foreground" -f $n, $points.Count, $pt[0], $pt[1])
+        exit 2
+    }
+    [Clicker]::ApproachClick($pt[0], $pt[1], $PressMs, $Approach)
     Write-Output ("click {0}/{1} at {2},{3} foreground={4}" -f $n, $points.Count, $pt[0], $pt[1], $focused)
     Start-Sleep -Milliseconds $GapMs
 }
