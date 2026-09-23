@@ -72,6 +72,26 @@ self-check ("wires in the file 8 -> 8, drew 0") was right to complain. Two conse
 * to *test* whether a coordinate is a pin, draw from it to a pin that is already known - if the
   coordinate is not a pin, nothing starts and nothing is written.
 
+## Taps: a net with three or more pins
+
+A pin carries exactly one wire, so a net that has to reach three pins needs a node on one of them.
+The gesture, in the order that works - measured on the clean canvas design (two parts, no wires):
+
+1. click the **连接点** (junction) tool in the left column. That column's x is about **18**, not 30:
+   at 30 the click lands on the edge of the buttons and usually does nothing, which is what made
+   earlier attempts look like the tool was broken;
+2. click the point on the wire where the node belongs - the node appears together with the wire
+   that leaves it;
+3. click the 选择模式 button (x about 18, y about 130) to leave the junction tool;
+4. click the node, then the far pin, exactly like any other wire.
+
+What Isis writes is the honest check: the tapped wire is **gone**, replaced by two wires that both
+end at the node, plus the new branch as a third. In the test the design went from two wires to four
+(split pair plus branch), and a save round trip kept all four routes unchanged.
+
+`dsn_draw_wires.ps1` does this when a wire's first point carries a leading `@` (`@x,y;x2,y2`). Its
+wire count check reports the tap by going up by two rather than one.
+
 ## Evidence
 
 One wire, drawn by the script from U3:C pin 10 to pin 8 on the five gate base:

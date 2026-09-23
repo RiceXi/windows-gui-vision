@@ -27,7 +27,8 @@ param(
     [string]$Calib = "",                       # a known pin, "x,y"; defaults to the first wire's first end
     [int]$OffsetX = 0, [int]$OffsetY = 0,      # nudge if the mapping is off; see -CheckFirst
     [switch]$CheckFirst,                       # require the rubber band after the first click of each wire
-    [int]$JunctionX = 30, [int]$JunctionY = 170,   # the 连接点 tool, named from the status bar
+    [int]$JunctionX = 18, [int]$JunctionY = 170,   # the 连接点 tool (left column is at x about 18)
+    [int]$NeutralX = 18, [int]$NeutralY = 130,     # 选择模式, to leave the junction tool again
     [double]$OriginX = 785, [double]$OriginY = 440, [double]$Scale = 100,
     [string]$Exe = 'C:\Program Files (x86)\Labcenter Electronics\Proteus 7 Professional\BIN\ISIS.EXE',
     [string]$Pwsh = 'C:\Users\yangf\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell\pwsh.exe',
@@ -303,11 +304,20 @@ foreach ($w in $wires) {
     Start-Sleep -Milliseconds 400
     Clear-Dialogs $proc.Id
     if ($w[0][2]) {
-        # The first point is on an existing wire, not on a pin. No tool has to be selected for
-        # this: clicking a wire *is* the tap gesture - Isis splits the wire, leaves a node at the
-        # click and starts a new wire from it. An earlier version pressed the 连接点 button first,
-        # and with that mode active a click on a wire did nothing at all.
-        Write-Output ("  tap: ({0},{1}) is on an existing wire, the node comes from clicking it" -f $w[0][0], $w[0][1])
+        # The first point is on an existing wire rather than on a pin, so a node has to be created
+        # there first: pick the 连接点 tool, click the wire, then leave the tool again. The toolbar
+        # column is at x about 18 - clicking at x=30 hits the edge of the buttons and often does
+        # nothing at all, which is why earlier attempts at this appeared to work never.
+        # ASCII only: this script is run by Windows PowerShell, which reads a file without a BOM
+        # as ANSI and turns any non-ASCII literal into mojibake
+        Write-Output ("  tap: creating a node at ({0},{1}) with the junction tool" -f $w[0][0], $w[0][1])
+        Invoke-ChildInput $JunctionX $JunctionY -Click
+        Start-Sleep -Milliseconds 500
+        Invoke-ChildInput $ax $ay -Click
+        Start-Sleep -Milliseconds 800
+        Clear-Dialogs $proc.Id
+        Invoke-ChildInput $NeutralX $NeutralY -Click
+        Start-Sleep -Milliseconds 500
     }
     Click-Point $ax $ay
     if ($CheckFirst) {
