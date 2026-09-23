@@ -870,3 +870,21 @@ mapping recalibrated from every successful placement (the sheet drifts between b
 (780,460) then (610,444) then (520,270) for one instance). `discover` is how a device whose pins
 are not in the table yet gets measured: candidate offsets are tried one at a time and a wire only
 appears when both ends are on connection points.
+
+## What killed the interaction, and what did not
+
+After a few hours of this the application stops answering: view commands still work (`327` grid,
+`331` zoom-to-fit both visibly change the canvas) but **no dialog opens any more** (`208` pick
+devices, `64` design properties) and **no click on the canvas does anything**, in *every*
+instance, old or freshly started. `IsWindowEnabled` on the main window stays true and no dialog
+window is listed. The state appeared after a modal component editor was opened by a stray
+double-click on a part and then dismissed. The only cure found was a new process.
+
+So: keep click gaps over a second so two clicks never read as a double click, never aim a click at
+a placed symbol unless a wire is meant to start there, and when dialogs stop opening, restart the
+application instead of retrying.
+
+Writing wires into the file, even with the pin's connection slot updated and any of the three
+shapes, is refused by the loader on this build (the crash shape, exit 2 from
+`design_loadcheck.ps1`). Two attempts, same result. The file route is good for *reading* a design
+and for renaming a terminal; it is not a way to add a wire.

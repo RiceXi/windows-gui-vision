@@ -161,11 +161,14 @@ def run_start(d, head, end, tails):
 
 def part_span(d, head, tail, ref):
     """Where an instance's record starts, and where a wire attached to it is spliced in."""
-    m = re.search(rb"\xff\x04" + ref.encode("latin1"), d[head:tail])
+    # the byte after 0xFF is the name's length, so "SW1" needs 0x03 and "U3:C" needs 0x04 - the
+    # original version hard-coded 0x04 and could not find a three letter reference like SW1 or R1
+    tag = b"\xff" + bytes([len(ref)]) + ref.encode("latin1")
+    m = re.search(re.escape(tag), d[head:tail])
     if not m:
         raise SystemExit("no record for %s in this design" % ref)
     start = head + m.start()
-    nxt = re.search(rb"\xff\x04U\d:[A-D]", d[start + 5:tail])
+    nxt = re.search(rb"\xff[\x02-\x08][A-Za-z]{1,3}\d+(:[A-Z])?\x00?", d[start + 5:tail])
     nxt = start + 5 + nxt.start() if nxt else tail
     # Isis measures the record as 420 bytes when it lists instances, and a wire attached to the
     # part is spliced in at the last of those bytes - one byte before the next instance's marker.
